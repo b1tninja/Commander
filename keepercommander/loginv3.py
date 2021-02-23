@@ -379,10 +379,10 @@ class LoginV3Flow:
 
         channel_types = OrderedDict([
             ('TWO_FA_CT_U2F', 'U2F (FIDO Security Key)'),
-            ('TWO_FA_CT_DUO', 'DUO'),
-            ('TWO_FA_CT_TOTP', 'TOTP (Google Authenticator)'),
-            # ('TWO_FA_CODE_RSA', 'RSA Authenticator'),
             ('TWO_FA_CT_SMS', 'Send SMS Code'),
+            ('TWO_FA_CT_TOTP', 'TOTP (Google Authenticator)'),
+            ('TWO_FA_CT_DUO', 'DUO'),
+            # ('TWO_FA_CODE_RSA', 'RSA Authenticator'),
         ])
 
         try:
