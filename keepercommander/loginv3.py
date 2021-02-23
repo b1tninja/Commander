@@ -395,9 +395,9 @@ class LoginV3Flow:
 
             for n, (channel_type, channel_desc) in enumerate(channel_types.items()):
                 if channel_type in available_channels:
-                    print(f"{n+1}.\t{channel_desc}")
+                    print(f"{n+1:>3}. {channel_desc}")
                 else:
-                    print(f"\t{channel_desc} {bcolors.FAIL}[ NOT ENABLED ]{bcolors.ENDC}")
+                    print(f"     {channel_desc} {bcolors.FAIL}[ NOT ENABLED ]{bcolors.ENDC}")
 
             try:
                 selection: str = input('Selection: ')
@@ -424,7 +424,7 @@ class LoginV3Flow:
             if type(rs) == bytes:
                 logging.info(bcolors.OKGREEN + "\nSuccessfully sent SMS.\n" + bcolors.ENDC)
 
-                otp_code = input("Enter OTP Code")
+                otp_code = input("Enter OTP Code: ")
                 rs = LoginV3API.twoFactorValidateMessage(params, encryptedLoginToken, otp_code, proto.TWO_FA_EXP_IMMEDIATELY)
                 if type(rs) == bytes:
                     print(bcolors.OKGREEN + "Verified 2FA Code." + bcolors.ENDC)
