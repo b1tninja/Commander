@@ -423,6 +423,15 @@ class LoginV3Flow:
 
             if type(rs) == bytes:
                 logging.info(bcolors.OKGREEN + "\nSuccessfully sent SMS.\n" + bcolors.ENDC)
+                import prompt_toolkit
+                otp_code = input("Enter OTP Code")
+                rs = LoginV3API.twoFactorValidateMessage(params, encryptedLoginToken, otp_code, proto.TWO_FA_EXP_IMMEDIATELY)
+                if type(rs) == bytes:
+                    print(bcolors.OKGREEN + "Verified 2FA Code." + bcolors.ENDC)
+                    two_fa_validation_rs = proto.TwoFactorValidateResponse()
+                    two_fa_validation_rs.ParseFromString(rs)
+
+                    return two_fa_validation_rs.encryptedLoginToken
             else:
                 raise KeeperApiError(rs['error'], rs['message'])
 
