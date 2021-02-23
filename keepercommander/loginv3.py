@@ -379,7 +379,7 @@ class LoginV3Flow:
 
         channel_types = OrderedDict([
             ('TWO_FA_CT_U2F', 'U2F (FIDO Security Key)'),
-            ('TWO_FA_CT_SMS', 'Send SMS Code'),
+            ('TWO_FA_CT_SMS', 'Send OTP Code (SMS)'),
             ('TWO_FA_CT_TOTP', 'TOTP (Google Authenticator)'),
             ('TWO_FA_CT_DUO', 'DUO'),
             # ('TWO_FA_CODE_RSA', 'RSA Authenticator'),
@@ -395,7 +395,7 @@ class LoginV3Flow:
 
             for n, (channel_type, channel_desc) in enumerate(channel_types.items()):
                 if channel_type in available_channels:
-                    print(f"{n+1:>3}. {channel_desc} {bcolors.OKGREEN}(Available){bcolors.ENDC}")
+                    print(f"{n+1:>3}. {channel_desc} {bcolors.OKGREEN}[ ENABLED ]{bcolors.ENDC}")
                 else:
                     print(f"     {channel_desc}")
 
