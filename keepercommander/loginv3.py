@@ -395,9 +395,9 @@ class LoginV3Flow:
 
             for n, (channel_type, channel_desc) in enumerate(channel_types.items()):
                 if channel_type in available_channels:
-                    print(f"{n+1:>3}. {channel_desc}")
+                    print(f"{n+1:>3}. {channel_desc} {bcolors.OKGREEN}(Available){bcolors.ENDC}")
                 else:
-                    print(f"     {channel_desc} {bcolors.FAIL}[ NOT ENABLED ]{bcolors.ENDC}")
+                    print(f"     {channel_desc}")
 
             try:
                 selection: str = input('Selection: ')
@@ -408,7 +408,7 @@ class LoginV3Flow:
                 logging.debug(f"Selected {idx}. {channel_type}")
                 assert channel is not None
             except:
-                raise Exception("Invalid entry, additional factors of authentication shown may be configured if not currently enabled.")
+                print("Invalid entry, additional factors of authentication shown may be configured if not currently enabled.")
 
         if channel_type == 'TWO_FA_CODE_NONE':
             pass
@@ -569,7 +569,7 @@ class LoginV3API:
             # Get or save key from file
             encrypted_device_token_str = CommonHelperMethods.bytes_to_url_safe_str(encrypted_device_token_bytes)
 
-            CommonHelperMethods.config_file_set_property(params, "device_token", encrypted_device_token_str)
+            CommonHelperMethods.config_file_set_property(params, "device_tok    en", encrypted_device_token_str)
 
         encrypted_device_token_bytes = CommonHelperMethods.url_safe_str_to_bytes(encrypted_device_token_str)
 
