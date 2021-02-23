@@ -161,8 +161,9 @@ class KeeperParams:
 
         config = {}
         try:
-            with open(config_filename) as config_file:
-                config = json.load(config_file)
+            if os.path.exists(config_filename):
+                with open(config_filename) as config_file:
+                    config = json.load(config_file)
         except IOError as ioe:
             logging.warning('Error: Unable to open config file %s: %s.', config_filename, ioe)
         except Exception as e:
@@ -170,7 +171,8 @@ class KeeperParams:
                 config_filename)
         else:
             logging.debug(f'Parsed config JSON successfully: {config_filename}.')
-            return cls(config_filename=config_filename, **config)
+
+        return cls(config_filename=config_filename, **config)
 
 
     def clear_session(self):
