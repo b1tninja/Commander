@@ -423,7 +423,7 @@ class LoginV3Flow:
 
             if type(rs) == bytes:
                 logging.info(bcolors.OKGREEN + "\nSuccessfully sent SMS.\n" + bcolors.ENDC)
-                import prompt_toolkit
+
                 otp_code = input("Enter OTP Code")
                 rs = LoginV3API.twoFactorValidateMessage(params, encryptedLoginToken, otp_code, proto.TWO_FA_EXP_IMMEDIATELY)
                 if type(rs) == bytes:
