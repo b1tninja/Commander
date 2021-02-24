@@ -86,6 +86,8 @@ class KeeperParams:
                  private_key: str = '',
                  **config):
 
+        # config.update(locals())
+
         if commands is None:
             commands = []
         else:
@@ -102,6 +104,11 @@ class KeeperParams:
             debug = True
             logging.getLogger().setLevel(logging.DEBUG)
             logging.debug('Debug ON')
+
+        if not mfa_type:
+            mfa_type = 'device_token'
+
+        device_id = base64.urlsafe_b64decode(device_id + '==')
 
         self.config_filename = config_filename
         self.config = config
@@ -142,7 +149,6 @@ class KeeperParams:
         self.msp_tree_key = None
         self.prepare_commands = False
         self.batch_mode = batch_mode
-        device_id = base64.urlsafe_b64decode(device_id + '==')
         self.device_id = device_id
         self.__rest_context = RestApiContext(server=server, device_id=device_id)
         self.pending_share_requests = set()

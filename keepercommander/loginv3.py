@@ -411,6 +411,8 @@ class LoginV3Flow:
                 print("Invalid entry, additional factors of authentication shown may be configured if not currently enabled.")
                 return
 
+        mfa_prompt = False
+
         if channel_type == 'TWO_FA_CODE_NONE':
             pass
 
@@ -424,16 +426,9 @@ class LoginV3Flow:
 
             if type(rs) == bytes:
                 logging.info(bcolors.OKGREEN + "\nSuccessfully sent SMS.\n" + bcolors.ENDC)
-
-                otp_code = input("Enter OTP Code: ")
-                rs = LoginV3API.twoFactorValidateMessage(params, encryptedLoginToken, otp_code, proto.TWO_FA_EXP_IMMEDIATELY)
-                if type(rs) == bytes:
-                    print(bcolors.OKGREEN + "Verified 2FA Code." + bcolors.ENDC)
-                    two_fa_validation_rs = proto.TwoFactorValidateResponse()
-                    two_fa_validation_rs.ParseFromString(rs)
-
-                    return two_fa_validation_rs.encryptedLoginToken
+                mfa_prompt = True
             else:
+                logging.error("Was unable to send SMS.")
                 raise KeeperApiError(rs['error'], rs['message'])
 
         elif channel_type == 'TWO_FA_CODE_RSA':
@@ -471,32 +466,26 @@ class LoginV3Flow:
             except Exception as e:
                 logging.error(e)
 
-        elif channel['channelType'] == 'TWO_FA_RESP_WEBAUTHN':
-            raise Exception("Not supported channelType " + channel['channelType'])
-        elif channel['channelType'] == 'TWO_FA_CT_KEEPER':
-            raise Exception("Not supported channelType " + channel['channelType'])
-        elif channel['channelType'] == 'TWO_FA_CODE_TOTP':
-            # print("DO TOTP (Google Authenticator)")
-            raise Exception("Not supported channelType " + channel['channelType'])
-        elif channel['channelType'] == 'TWO_FA_CODE_DUO':
-            raise Exception("Not supported channelType " + channel['channelType'])
-        elif channel['channelType'] == 'TWO_FA_CODE_DNA':
-            raise Exception("Not supported channelType " + channel['channelType'])
-        elif channel['channelType'] == 'EMAIL_CODE':
-            raise Exception("Not supported channelType " + channel['channelType'])
-        elif channel['channelType'] == '2FA_CODE' \
-                or channel['channelType'] == 'TWO_FA_CT_TOTP'\
-                or channel['channelType'] == 'TWO_FA_CT_DUO':
+        # elif channel_type == 'TWO_FA_RESP_WEBAUTHN':
+        # elif channel_type == 'TWO_FA_CT_KEEPER':
+        # elif channel_type == 'TWO_FA_CODE_TOTP':
+        # elif channel_type == 'TWO_FA_CODE_DUO':
+        # elif channel_type == 'TWO_FA_CODE_DNA':
+        # elif channel_type == 'EMAIL_CODE':
+        elif channel_type in ['TWO_FA_CT_TOTP', 'TWO_FA_CT_DUO']:
+            mfa_prompt = True
+        else:
+            raise NotImplementedError("Unhandled channel type %s" % channel_type)
+
+        if mfa_prompt:
 
             prompt_str = "Enter 2FA Code"
 
-            cur_channel_type = channel['channelType']
-
-            if cur_channel_type == 'TWO_FA_CT_DUO':
+            if channel_type == 'TWO_FA_CT_DUO':
                 prompt_str = prompt_str + " (use code from DUO app)"
-            elif cur_channel_type == 'TWO_FA_CT_TOTP':
+            elif channel_type == 'TWO_FA_CT_TOTP':
                 prompt_str = prompt_str + " (use code from Google Authenticator app)"
-            elif cur_channel_type == 'TWO_FA_CT_SMS':
+            elif channel_type == 'TWO_FA_CT_SMS':
                 prompt_str = prompt_str + " (use code sent to)"
 
             otp_code: str = input('\n' + prompt_str + ': ')
@@ -519,9 +508,6 @@ class LoginV3Flow:
             else:
                 warning_msg = bcolors.WARNING + "Unable to verify 2FA code '" + otp_code + "'. Regenerate the code and try again." + bcolors.ENDC
                 logging.warning(warning_msg)
-
-        else:
-            raise Exception("Unhandled channel type %s" % channel['channelType'])
 
 class LoginV3API:
 
