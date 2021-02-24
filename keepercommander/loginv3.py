@@ -409,6 +409,7 @@ class LoginV3Flow:
                 assert channel is not None
             except:
                 print("Invalid entry, additional factors of authentication shown may be configured if not currently enabled.")
+                return
 
         if channel_type == 'TWO_FA_CODE_NONE':
             pass
