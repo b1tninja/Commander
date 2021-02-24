@@ -7,9 +7,11 @@
 # Keeper Commander 
 # Contact: ops@keepersecurity.com
 #
-
+import os
+import json
+import base64
+import logging
 from urllib.parse import urlparse, urlunparse
-
 
 LAST_RECORD_UID = 'last_record_uid'
 LAST_SHARED_FOLDER_UID = 'last_shared_folder_uid'
@@ -56,18 +58,66 @@ class RestApiContext:
     store_server_key = property(__get_store_server_key)
 
 
+import enum
+
+
+class MfaType(enum.Enum):
+    device_token = 1
+
+
 class KeeperParams:
     """ Global storage of data during the session """
+    DEFAULT_ENDPOINT = 'https://keepersecurity.com/api/v2/'
 
-    def __init__(self, config_filename='', config=None, server='https://keepersecurity.com/api/v2/', device_id=None):
+    def __init__(self, config_filename='', *,
+                 user: str = '',
+                 server: str = DEFAULT_ENDPOINT,
+                 password: str = '',
+                 timedelay: int = 0,
+                 mfa_token: str = '',
+                 mfa_type: str = '',  # device_token
+                 commands: list = None,
+                 plugins: list = None,
+                 debug: bool = False,
+                 batch_mode: bool = False,
+                 device_id: str = '',
+                 logout_timer=0,
+                 login_v3: bool = True,
+                 private_key: str = '',
+                 **config):
+
+        # config.update(locals())
+
+        if commands is None:
+            commands = []
+        else:
+            assert type(commands) is list
+            assert all([type(cmd) is dict for cmd in commands])
+
+        if plugins is None:
+            plugins = list()
+        else:
+            assert type(plugins) is list
+            assert all([type(plugin) is dict for plugin in plugins])
+
+        if debug:
+            debug = True
+            logging.getLogger().setLevel(logging.DEBUG)
+            logging.debug('Debug ON')
+
+        if not mfa_type:
+            mfa_type = 'device_token'
+
+        device_id = base64.urlsafe_b64decode(device_id + '==')
+
         self.config_filename = config_filename
-        self.config = config or {}
+        self.config = config
         self.auth_verifier = None
         self.__server = server
-        self.user = ''
-        self.password = ''
-        self.mfa_token = ''
-        self.mfa_type = 'device_token'
+        self.user = user.lower()
+        self.password = password
+        self.mfa_token = mfa_token
+        self.mfa_type = mfa_type or 'device_token'
         self.commands = []
         self.plugins = []
         self.session_token = None
@@ -80,7 +130,7 @@ class KeeperParams:
         self.meta_data_cache = {}
         self.shared_folder_cache = {}
         self.team_cache = {}
-        self.key_cache = {}    # team or user
+        self.key_cache = {}  # team or user
         self.available_team_cache = None
         self.subfolder_cache = {}
         self.subfolder_record_cache = {}
@@ -89,7 +139,7 @@ class KeeperParams:
         self.current_folder = None
         self.folder_cache = {}
         self.debug = False
-        self.timedelay = 0
+        self.timedelay = timedelay
         self.sync_data = True
         self.license = None
         self.settings = None
@@ -98,17 +148,38 @@ class KeeperParams:
         self.enterprise_id = 0
         self.msp_tree_key = None
         self.prepare_commands = False
-        self.batch_mode = False
+        self.batch_mode = batch_mode
+        self.device_id = device_id
         self.__rest_context = RestApiContext(server=server, device_id=device_id)
         self.pending_share_requests = set()
         self.environment_variables = {}
-        self.record_history = {}        # type: dict[str, (list[dict], int)]
+        self.record_history = {}  # type: dict[str, (list[dict], int)]
         self.event_queue = []
-        self.logout_timer = 0
-        self.login_v3 = True
+        self.logout_timer = logout_timer
+        self.login_v3 = login_v3
         self.clone_code = None
         self.device_token = None
-        self.device_private_key = None
+        self.device_private_key = private_key
+
+    @classmethod
+    def from_config(cls, config_filename):
+        config_filename = os.getenv('KEEPER_CONFIG_FILE', config_filename or 'config.json')
+
+        config = {}
+        try:
+            if os.path.exists(config_filename):
+                with open(config_filename) as config_file:
+                    config = json.load(config_file)
+        except IOError as ioe:
+            logging.warning('Error: Unable to open config file %s: %s.', config_filename, ioe)
+        except Exception as e:
+            logging.error('Unable to parse JSON configuration file "%s". Please check config for errors, and ensure the directory and config are writable.',
+                config_filename)
+        else:
+            logging.debug(f'Parsed config JSON successfully: {config_filename}.')
+
+        return cls(config_filename=config_filename, **config)
+
 
     def clear_session(self):
         self.auth_verifier = ''
@@ -129,7 +200,7 @@ class KeeperParams:
         self.team_cache.clear()
         self.available_team_cache = None
         self.key_cache.clear()
-        self.subfolder_cache .clear()
+        self.subfolder_cache.clear()
         self.subfolder_record_cache.clear()
         self.non_shared_data_cache.clear()
         if self.folder_cache:
@@ -172,7 +243,8 @@ class KeeperParams:
             if self.license['account_type'] == 2:
                 self.event_queue.append({
                     'audit_event_type': name,
-                    'inputs': {x: kwargs[x] for x in kwargs if x in {'record_uid', 'file_format', 'attachment_id', 'to_username'}}
+                    'inputs': {x: kwargs[x] for x in kwargs if
+                               x in {'record_uid', 'file_format', 'attachment_id', 'to_username'}}
                 })
 
     server = property(__get_server, __set_server)

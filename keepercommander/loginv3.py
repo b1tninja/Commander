@@ -379,7 +379,7 @@ class LoginV3Flow:
 
         channel_types = OrderedDict([
             ('TWO_FA_CT_U2F', 'U2F (FIDO Security Key)'),
-            ('TWO_FA_CT_SMS', 'Send SMS Code'),
+            ('TWO_FA_CT_SMS', 'Send OTP Code (SMS)'),
             ('TWO_FA_CT_TOTP', 'TOTP (Google Authenticator)'),
             ('TWO_FA_CT_DUO', 'DUO'),
             # ('TWO_FA_CODE_RSA', 'RSA Authenticator'),
@@ -556,7 +556,7 @@ class LoginV3API:
             # Get or save key from file
             encrypted_device_token_str = CommonHelperMethods.bytes_to_url_safe_str(encrypted_device_token_bytes)
 
-            CommonHelperMethods.config_file_set_property(params, "device_token", encrypted_device_token_str)
+            CommonHelperMethods.config_file_set_property(params, "device_tok    en", encrypted_device_token_str)
 
         encrypted_device_token_bytes = CommonHelperMethods.url_safe_str_to_bytes(encrypted_device_token_str)
 
