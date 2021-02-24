@@ -9,37 +9,21 @@
 # Contact: ops@keepersecurity.com
 #
 
+import base64
 import getpass
-import time
-import threading
+import json
 import logging
 import os
 import signal
-import base64
+import threading
+import time
 from hashlib import sha256
-import json
 
-from fido2.hid import CtapHidDevice
+from fido2.client import U2F_TYPE, WindowsClient
 from fido2.ctap1 import CTAP1, APDU, ApduError
-from fido2.client import U2F_TYPE, U2fClient
+from fido2.hid import CtapHidDevice
+from fido2.webauthn import PublicKeyCredentialRequestOptions
 
-
-# def u2f_authenticate_client(authenticateRequests):
-#     # type: (List[dict]) -> Optional[dict]
-#
-#     if not authenticateRequests:
-#         return None
-#
-#     devices = list(CtapHidDevice.list_devices())
-#     if not devices:
-#         return None
-#
-#     for i in range(len(devices)):
-#         u2f_client = U2fClient(devices[i], "https://dev.keepersecurity.com")
-#         for rq in authenticateRequests:
-#             return u2f_client.sign(rq['appId'], rq['challenge'], [rq])
-#
-#
 from keepercommander.display import bcolors
 
 u2f_response = None
@@ -47,7 +31,9 @@ should_cancel_u2f = False
 
 if os.name == 'nt':
     import msvcrt
+
     win_cancel_getch = False
+
 
 def get_input_interrupted(prompt):
     # TODO: refactor to use interruptable prompt from prompt_toolkit in api.py:193 (login: process 2fa error codes).
@@ -81,6 +67,18 @@ def u2f_authenticate(authenticateRequests):
 
     if not authenticateRequests:
         return None
+
+    if WindowsClient.is_available():  # and not ctypes.windll.shell32.IsUserAnAdmin():
+        # Use the Windows WebAuthn API if available, and we're not running as admin
+        for request in authenticateRequests:
+            client = WindowsClient(request['appId'])
+            # client.api.make_credential
+            key_handle = base64.urlsafe_b64decode(request['keyHandle'] + '==')
+            pkcr_options = PublicKeyCredentialRequestOptions(request['challenge'],
+                                                             allow_credentials=[key_handle],
+                                                             user_verification=True)
+            assertion = client.get_assertion(pkcr_options)
+            print(assertion)
 
     devices = list(CtapHidDevice.list_devices())
     if not devices:
@@ -118,7 +116,8 @@ def u2f_authenticate(authenticateRequests):
         u2f_thread = threading.Thread(target=thread_function, args=((to_auth,)))
         u2f_thread.start()
         try:
-            get_input_interrupted(bcolors.WARNING + '\nTouch the flashing U2F device to authenticate or press Enter to resume with the primary two factor authentication...\n' + bcolors.ENDC)
+            get_input_interrupted(
+                bcolors.WARNING + '\nTouch the flashing U2F device to authenticate or press Enter to resume with the primary two factor authentication...\n' + bcolors.ENDC)
             should_cancel_u2f = True
             u2f_thread.join()
         except KeyboardInterrupt:
