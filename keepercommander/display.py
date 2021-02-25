@@ -8,13 +8,15 @@
 # Contact: ops@keepersecurity.com
 #
 import json
+from collections import OrderedDict as OD
+from typing import Optional
 
+from asciitree import LeftAligned
 from colorama import init
 from tabulate import tabulate
-from asciitree import LeftAligned
-from collections import OrderedDict as OD
-from .subfolder import BaseFolderNode
 
+from .params import KeeperParams
+from .subfolder import BaseFolderNode
 
 init()
 
@@ -30,15 +32,15 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 
-def welcome():
+def welcome(params: Optional[KeeperParams] = None):
     print('\n')
-    print(bcolors.OKBLUE,' _  __  ' + bcolors.ENDC)
-    print(bcolors.OKBLUE,'| |/ /___ ___ _ __  ___ _ _ ' + bcolors.ENDC)
-    print(bcolors.OKBLUE,'| \' </ -_) -_) \'_ \\/ -_) \'_|' + bcolors.ENDC)
-    print(bcolors.OKBLUE,'|_|\\_\\___\\___| .__/\\___|_|' + bcolors.ENDC)
-    print(bcolors.OKBLUE,'             |_|            ' + bcolors.ENDC)
-    print('')
-    print(bcolors.FAIL,'password manager & digital vault' + bcolors.ENDC)
+    print(bcolors.OKBLUE, ' _  __  ' + bcolors.ENDC)
+    print(bcolors.OKBLUE, '| |/ /___ ___ _ __  ___ _ _ ' + bcolors.ENDC)
+    print(bcolors.OKBLUE, '| \' </ -_) -_) \'_ \\/ -_) \'_|' + bcolors.ENDC)
+    print(bcolors.OKBLUE, '|_|\\_\\___\\___| .__/\\___|_|' + bcolors.ENDC)
+    print(bcolors.OKBLUE, '             |_| ' + bcolors.ENDC)
+    print(params.server)
+    print(bcolors.FAIL, 'password manager & digital vault' + bcolors.ENDC)
     print('')
     print('')
 
@@ -58,7 +60,6 @@ def formatted_records(records, **kwargs):
         else:
             return text if len(text) < chars_num else text[:chars_num] + '...'
 
-
     if len(records) > 0:
         shared_folder = None
         if 'folder' in kwargs and params is not None:
@@ -73,7 +74,8 @@ def formatted_records(records, **kwargs):
                 if fuid and fuid in params.shared_folder_cache:
                     shared_folder = params.shared_folder_cache[fuid]
 
-        table = [[i + 1, r.record_uid, abbreviate_text(r.title, 32), r.login, abbreviate_text(r.login_url, 32)] for i, r in enumerate(records)]
+        table = [[i + 1, r.record_uid, abbreviate_text(r.title, 32), r.login, abbreviate_text(r.login_url, 32)] for i, r
+                 in enumerate(records)]
         headers = ["#", 'Record UID', 'Title', 'Login', 'URL']
         if shared_folder and 'records' in shared_folder:
             headers.append('Flags')
@@ -104,7 +106,6 @@ def formatted_shared_folders(shared_folders, **kwargs):
     shared_folders.sort(key=lambda x: (x.name if x.name else ' ').lower(), reverse=False)
 
     if len(shared_folders) > 0:
-
         table = [[i + 1, sf.shared_folder_uid, sf.name] for i, sf in enumerate(shared_folders)]
         print(tabulate(table, headers=["#", 'Shared Folder UID', 'Name']))
 
@@ -124,7 +125,6 @@ def formatted_teams(teams, **kwargs):
     teams.sort(key=lambda x: (x.name if x.name else ' ').lower(), reverse=False)
 
     if len(teams) > 0:
-
         table = [[i + 1, team.team_uid, team.name] for i, team in enumerate(teams)]
         print(tabulate(table, headers=["#", 'Team UID', 'Name']))
 
@@ -202,7 +202,6 @@ def print_record(params, record_uid):
 
 
 def format_msp_licenses(licenses):
-
     print('')
     print('MSP Plans and Licenses')
     print('-----------------------')
@@ -212,7 +211,7 @@ def format_msp_licenses(licenses):
         for i, lic in enumerate(licenses):
 
             if len(licenses) > 1:
-                print('License # ', i+1)
+                print('License # ', i + 1)
 
             msp_license_pool = lic['msp_pool']
 
@@ -222,20 +221,18 @@ def format_msp_licenses(licenses):
                     ml['product_id'],
                     ml['availableSeats'],
                     ml['seats'],
-                    ml['stash'] if 'stash' in ml else ' -'   # sometimes stash won't be returned from the backend
+                    ml['stash'] if 'stash' in ml else ' -'  # sometimes stash won't be returned from the backend
                 ] for j, ml in enumerate(msp_license_pool)]
             print(tabulate(table, headers=["#", 'Plan Id', 'Available Licenses', 'Total Licenses', 'Stash']))
             print('')
 
 
 def format_managed_company(mcs):
-
     # Sort by title
     mcs.sort(key=lambda x: x['mc_enterprise_name'].lower(), reverse=False)
 
     if len(mcs) > 0:
-        table = [[i + 1, mc['mc_enterprise_id'], mc['mc_enterprise_name'], mc['product_id'], mc['number_of_seats'], mc['number_of_users']] for i, mc in enumerate(mcs)]
+        table = [[i + 1, mc['mc_enterprise_id'], mc['mc_enterprise_name'], mc['product_id'], mc['number_of_seats'],
+                  mc['number_of_users']] for i, mc in enumerate(mcs)]
         print(tabulate(table, headers=["#", 'ID', 'Name', 'Plan', 'Allocated', 'Active']))
         print('')
-
-

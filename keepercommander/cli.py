@@ -374,14 +374,12 @@ def runcommands(params):
 
 
 def prompt_for_username_if_needed(params):
-    if not params.user:
+    while not params.user:
+        # TODO: ENV var possibly?
         params.user = getpass.getpass(prompt='User(Email): ', stream=None)
 
-        while not params.user:
-            params.user = getpass.getpass(prompt='User(Email): ', stream=None)
 
-
-def prompt_for_credentials(params):
+def prompt_for_credentials(params: KeeperParams):
 
     if not params.login_v3:
         prompt_for_username_if_needed(params)
@@ -428,28 +426,33 @@ def loop(params):  # type: (KeeperParams) -> int
                                            complete_style=CompleteStyle.MULTI_COLUMN,
                                            complete_while_typing=False)
 
-        display.welcome()
+        display.welcome(params)
     else:
         logging.getLogger().setLevel(logging.WARNING)
 
     if params.user:
         if len(params.commands) == 0:
+            # Assuming interactive shell mode
             if not params.login_v3 and not params.password:
-                logging.info('Enter password for {0}'.format(params.user))
-                try:
-                    if not params.login_v3:
-                        params.password = getpass.getpass(prompt='Password: ', stream=None)
-                except KeyboardInterrupt:
-                    print('')
-                except EOFError:
-                    return 0
-    # if params.password:
+                # Prompt for password to "resume session" (login_v3 only)
+                prompt_for_credentials(params)
+                assert params.password
+        else:
+            # commands
+            pass
+    else:
+        pass
+        # first time / no-user
+
+    if params.password:
         try:
             api.login(params)
             if params.session_token:
                 do_command(params, 'sync-down')
         except Exception as e:
             logging.error(e)
+    else:
+        prompt_for_credentials(params)
 
     while True:
         command = ''
@@ -526,9 +529,9 @@ def get_prompt(params):
             if params.root_folder:
                 params.current_folder = ''
             else:
-                return 'Keeper> '
+                return f'{params.server} ({params.user})> '
     else:
-        return 'Not logged in> '
+        return f'Please login. Type "commands" for a description of available commands, or "help [command]" for additional information.\n{params.server} {sys.argv[0]} {os.getcwd()}>'
 
     prompt = ''
     f = params.folder_cache[params.current_folder] if params.current_folder in params.folder_cache else params.root_folder

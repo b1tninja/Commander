@@ -126,7 +126,8 @@ class LoginV3Flow:
                 resp = LoginV3API.startLoginMessage(params, encryptedDeviceToken)
 
             elif resp.loginState == proto.REQUIRES_AUTH_HASH:
-
+                # TODO: "redirect" should take precedence maybe?
+                print(f"Logging on to {params.server} as {params.user}...")
                 CommonHelperMethods.fill_password_with_prompt_if_missing(params)
 
                 salt = api.get_correct_salt(resp.salt)

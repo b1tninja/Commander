@@ -12,6 +12,7 @@ import enum
 import json
 import logging
 import os
+from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
 LAST_RECORD_UID = 'last_record_uid'
@@ -21,30 +22,32 @@ LAST_TEAM_UID = 'last_team_uid'
 
 
 class KeeperRegion(enum.Enum):
-    DEV = 0
-    COM = 1
-    EU = 2
+    COM = enum.auto()
+    EU = enum.auto()
 
 
 class RestApiContext:
     __REGION_SERVERS = {
         KeeperRegion.COM: 'keepersecurity.com',
         KeeperRegion.EU: 'keepersecurity.eu',
-        KeeperRegion.DEV: 'dev.keepersecurity.com',
+        # KeeperRegion.US: 'keepersecurity.us'
     }
 
-    def __init__(self, region=KeeperRegion.COM, locale='en_US', device_id=None, **kwargs):
+    DEFAULT_REGION = KeeperRegion.COM
+
+    def __init__(self, region=DEFAULT_REGION, locale='en_US', device_id=None, **kwargs):
         if region:
             if type(region) is str:
+                region = region.upper()
                 try:
-                    region = KeeperRegion[region.upper()]
+                    region = KeeperRegion[region]
                 except:
-                    logging.warning("Unknown Keeper Security region, using default instead.")
-                    region = None
+                    logging.warning(f"Unknown region '{region}' in configuration, using default instead.")
+                    region = KeeperRegion.COM
             else:
                 assert type(region) is KeeperRegion
 
-        elif 'server' in kwargs:
+        elif 'server' in kwargs and kwargs['server']:
             logging.debug("Update config.json region")
             p = urlparse(kwargs['server'])
             for server_region, server in self.__REGION_SERVERS.items():
@@ -53,7 +56,7 @@ class RestApiContext:
                     break
             else:
                 region = KeeperRegion.COM
-                logging.warning("Unrecognized regional server, using default server instead.")
+                logging.warning(f"Unrecognized domain: {p.netloc} configured.")
         else:
             region = KeeperRegion.COM
 
@@ -95,8 +98,8 @@ class KeeperParams:
 
     def __init__(self, config_filename='', *,
                  user: str = '',
-                 server=None,
-                 region=None,
+                 server: Optional[str] = None,
+                 region: Optional[str] = None,
                  password: str = '',
                  timedelay: int = 0,
                  mfa_token: str = '',

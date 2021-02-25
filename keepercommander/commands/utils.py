@@ -128,7 +128,7 @@ set_parser.exit = suppress_exit
 
 
 help_parser = argparse.ArgumentParser(prog='help', description='Displays help on a specific command.')
-help_parser.add_argument('command', action='store', type=str, help='Commander\'s command')
+help_parser.add_argument('command', action='store', type=str, help='Commander\'s command', nargs='?', default='help')
 help_parser.error = raise_parse_exception
 help_parser.exit = suppress_exit
 
