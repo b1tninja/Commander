@@ -7,10 +7,11 @@
 # Keeper Commander 
 # Contact: ops@keepersecurity.com
 #
-import os
-import json
 import base64
+import enum
+import json
 import logging
+import os
 from urllib.parse import urlparse, urlunparse
 
 LAST_RECORD_UID = 'last_record_uid'
@@ -19,9 +20,44 @@ LAST_FOLDER_UID = 'last_folder_uid'
 LAST_TEAM_UID = 'last_team_uid'
 
 
+class KeeperRegion(enum.Enum):
+    DEV = 0
+    COM = 1
+    EU = 2
+
+
 class RestApiContext:
-    def __init__(self, server='https://keepersecurity.com/api/v2/', locale='en_US', device_id=None):
-        self.server_base = server
+    __REGION_SERVERS = {
+        KeeperRegion.COM: 'keepersecurity.com',
+        KeeperRegion.EU: 'keepersecurity.eu',
+        KeeperRegion.DEV: 'dev.keepersecurity.com',
+    }
+
+    def __init__(self, region=KeeperRegion.COM, locale='en_US', device_id=None, **kwargs):
+        if region:
+            if type(region) is str:
+                try:
+                    region = KeeperRegion[region.upper()]
+                except:
+                    logging.warning("Unknown Keeper Security region, using default instead.")
+                    region = None
+            else:
+                assert type(region) is KeeperRegion
+
+        elif 'server' in kwargs:
+            logging.debug("Update config.json region")
+            p = urlparse(kwargs['server'])
+            for server_region, server in self.__REGION_SERVERS.items():
+                if server == p.netloc.lower():
+                    region = server_region
+                    break
+            else:
+                region = KeeperRegion.COM
+                logging.warning("Unrecognized regional server, using default server instead.")
+        else:
+            region = KeeperRegion.COM
+
+        self.region = region
         self.transmission_key = None
         self.__server_key_id = 1
         self.locale = locale
@@ -29,11 +65,7 @@ class RestApiContext:
         self.__store_server_key = False
 
     def __get_server_base(self):
-        return self.__server_base
-
-    def __set_server_base(self, value):
-        p = urlparse(value)
-        self.__server_base = urlunparse((p.scheme, p.netloc, '/api/rest/', None, None, None))
+        return urlunparse(('https', self.__REGION_SERVERS[self.region], '/api/rest/', None, None, None))
 
     def __get_server_key_id(self):
         return self.__server_key_id
@@ -52,26 +84,19 @@ class RestApiContext:
     def __get_store_server_key(self):
         return self.__store_server_key
 
-    server_base = property(__get_server_base, __set_server_base)
+    server_base = property(__get_server_base)
     device_id = property(__get_device_id, __set_device_id)
     server_key_id = property(__get_server_key_id, __set_server_key_id)
     store_server_key = property(__get_store_server_key)
 
 
-import enum
-
-
-class MfaType(enum.Enum):
-    device_token = 1
-
-
 class KeeperParams:
     """ Global storage of data during the session """
-    DEFAULT_ENDPOINT = 'https://keepersecurity.com/api/v2/'
 
     def __init__(self, config_filename='', *,
                  user: str = '',
-                 server: str = DEFAULT_ENDPOINT,
+                 server=None,
+                 region=None,
                  password: str = '',
                  timedelay: int = 0,
                  mfa_token: str = '',
@@ -109,6 +134,10 @@ class KeeperParams:
             mfa_type = 'device_token'
 
         device_id = base64.urlsafe_b64decode(device_id + '==')
+
+        rest_context = RestApiContext(region=region, server=server, device_id=device_id)
+
+        server = rest_context.server_base
 
         self.config_filename = config_filename
         self.config = config
@@ -150,7 +179,7 @@ class KeeperParams:
         self.prepare_commands = False
         self.batch_mode = batch_mode
         self.device_id = device_id
-        self.__rest_context = RestApiContext(server=server, device_id=device_id)
+        self.__rest_context = rest_context
         self.pending_share_requests = set()
         self.environment_variables = {}
         self.record_history = {}  # type: dict[str, (list[dict], int)]
@@ -173,13 +202,13 @@ class KeeperParams:
         except IOError as ioe:
             logging.warning('Error: Unable to open config file %s: %s.', config_filename, ioe)
         except Exception as e:
-            logging.error('Unable to parse JSON configuration file "%s". Please check config for errors, and ensure the directory and config are writable.',
+            logging.error(
+                'Unable to parse JSON configuration file "%s". Please check config for errors.',
                 config_filename)
         else:
             logging.debug(f'Parsed config JSON successfully: {config_filename}.')
 
         return cls(config_filename=config_filename, **config)
-
 
     def clear_session(self):
         self.auth_verifier = ''
