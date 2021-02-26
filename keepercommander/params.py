@@ -139,7 +139,6 @@ class KeeperParams:
         device_id = base64.urlsafe_b64decode(device_id + '==')
 
         rest_context = RestApiContext(region=region, server=server, device_id=device_id)
-
         server = rest_context.server_base
 
         self.config_filename = config_filename
@@ -262,6 +261,9 @@ class KeeperParams:
     def __get_rest_context(self):
         return self.__rest_context
 
+    def __get_region(self):
+        return self.rest_context.region.name
+
     def __get_server(self):
         return self.__server
 
@@ -279,5 +281,6 @@ class KeeperParams:
                                x in {'record_uid', 'file_format', 'attachment_id', 'to_username'}}
                 })
 
+    region = property(__get_server)
     server = property(__get_server, __set_server)
     rest_context = property(__get_rest_context)

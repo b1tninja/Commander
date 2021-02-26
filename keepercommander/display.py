@@ -32,13 +32,13 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 
-def welcome(params: Optional[KeeperParams] = None):
-    print('\n')
-    print(bcolors.OKBLUE, ' _  __  ' + bcolors.ENDC)
-    print(bcolors.OKBLUE, '| |/ /___ ___ _ __  ___ _ _ ' + bcolors.ENDC)
-    print(bcolors.OKBLUE, '| \' </ -_) -_) \'_ \\/ -_) \'_|' + bcolors.ENDC)
-    print(bcolors.OKBLUE, '|_|\\_\\___\\___| .__/\\___|_|' + bcolors.ENDC)
-    print(bcolors.OKBLUE, '             |_| ' + bcolors.ENDC)
+def welcome(params: KeeperParams):
+    print(bcolors.OKBLUE)
+    print(' _  __  ')
+    print('| |/ /___ ___ _ __  ___ _ _ ')
+    print('| \' </ -_) -_) \'_ \\/ -_) \'_|')
+    print('|_|\\_\\___\\___| .__/\\___|_|')
+    print(f'{bcolors.ENDC}    {bcolors.BOLD}SECURITY{bcolors.ENDC} {bcolors.OKBLUE}|_|{bcolors.ENDC} {bcolors.BOLD}{params.rest_context.region.name}{bcolors.ENDC}')
     print(params.server)
     print(bcolors.FAIL, 'password manager & digital vault' + bcolors.ENDC)
     print('')
