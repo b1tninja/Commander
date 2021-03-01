@@ -1,4 +1,4 @@
-#_  __
+# _  __
 # | |/ /___ ___ _ __  ___ _ _ ®
 # | ' </ -_) -_) '_ \/ -_) '_|
 # |_|\_\___\___| .__/\___|_|
@@ -16,6 +16,7 @@ import argparse
 import logging
 import datetime
 import getpass
+import pprint
 
 import requests
 import tempfile
@@ -37,6 +38,7 @@ from .base import raise_parse_exception, suppress_exit, user_choice, Command
 from ..subfolder import try_resolve_path, find_folders, get_folder_path
 from . import aliases, commands, enterprise_commands
 from ..error import CommandError
+
 # from ..loginv3 import LoginV3API, CommonHelperMethods
 
 SSH_AGENT_FAILURE = 5
@@ -61,6 +63,7 @@ def register_commands(commands):
     commands['echo'] = EchoCommand()
     commands['set'] = SetCommand()
     commands['help'] = HelpCommand()
+    commands['show'] = ShowCommand()
 
 
 def register_command_info(aliases, command_info):
@@ -71,17 +74,19 @@ def register_command_info(aliases, command_info):
     command_info['sync-down|d'] = 'Download & decrypt data'
 
 
-whoami_parser = argparse.ArgumentParser(prog='whoami', description='Display information about the currently logged in user.')
+whoami_parser = argparse.ArgumentParser(prog='whoami',
+                                        description='Display information about the currently logged in user.')
 whoami_parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='verbose output')
 whoami_parser.error = raise_parse_exception
 whoami_parser.exit = suppress_exit
 
 this_device_available_command_verbs = ['rename', 'register', 'persistent-login', 'ip-auto-approve', 'timeout']
-this_device_parser = argparse.ArgumentParser(prog='this-device', description='Display and modify settings of the current device.')
-this_device_parser.add_argument('ops', nargs='*', help="operation str: " + ", ".join(this_device_available_command_verbs))
+this_device_parser = argparse.ArgumentParser(prog='this-device',
+                                             description='Display and modify settings of the current device.')
+this_device_parser.add_argument('ops', nargs='*',
+                                help="operation str: " + ", ".join(this_device_available_command_verbs))
 this_device_parser.error = raise_parse_exception
 this_device_parser.exit = suppress_exit
-
 
 login_parser = argparse.ArgumentParser(prog='login', description='Login to Keeper.')
 login_parser.add_argument('-p', '--pass', dest='password', action='store', help='master password')
@@ -89,17 +94,14 @@ login_parser.add_argument('email', nargs='?', type=str, help='account email')
 login_parser.error = raise_parse_exception
 login_parser.exit = suppress_exit
 
-
 logout_parser = argparse.ArgumentParser(prog='logout', description='Logout from Keeper.')
 logout_parser.error = raise_parse_exception
 logout_parser.exit = suppress_exit
-
 
 check_enforcements_parser = argparse.ArgumentParser(prog='check-enforcements',
                                                     description='Check enterprise enforcements')
 check_enforcements_parser.error = raise_parse_exception
 check_enforcements_parser.exit = suppress_exit
-
 
 connect_parser = argparse.ArgumentParser(prog='connect', description='Establishes connection to external server')
 connect_parser.add_argument('--syntax-help', dest='syntax_help', action='store_true',
@@ -113,19 +115,16 @@ connect_parser.add_argument('endpoint', nargs='?', action='store', type=str,
 connect_parser.error = raise_parse_exception
 connect_parser.exit = suppress_exit
 
-
 echo_parser = argparse.ArgumentParser(prog='echo', description='Displays an argument to output.')
 echo_parser.add_argument('argument', nargs='?', action='store', type=str, help='argument')
 echo_parser.error = raise_parse_exception
 echo_parser.exit = suppress_exit
-
 
 set_parser = argparse.ArgumentParser(prog='set', description='Set an environment variable.')
 set_parser.add_argument('name', action='store', type=str, help='name')
 set_parser.add_argument('value', action='store', type=str, help='value')
 set_parser.error = raise_parse_exception
 set_parser.exit = suppress_exit
-
 
 help_parser = argparse.ArgumentParser(prog='help', description='Displays help on a specific command.')
 help_parser.add_argument('command', action='store', type=str, help='Commander\'s command', nargs='?', default='help')
@@ -170,17 +169,18 @@ class ThisDeviceCommand(Command):
         ops = kwargs.get('ops')
 
         if len(ops) == 0:
-
             ThisDeviceCommand.print_device_info(params)
             return
 
         if len(ops) >= 1 and ops[0].lower() != 'register':
             if len(ops) == 1 and ops[0].lower() != 'register':
-                logging.error("Must supply action and value. Available sub-commands: " + ", ".join(this_device_available_command_verbs))
+                logging.error("Must supply action and value. Available sub-commands: " + ", ".join(
+                    this_device_available_command_verbs))
                 return
 
             if len(ops) != 2:
-                logging.error("Must supply action and value. Available sub-commands: " + ", ".join(this_device_available_command_verbs))
+                logging.error("Must supply action and value. Available sub-commands: " + ", ".join(
+                    this_device_available_command_verbs))
                 return
 
         action = ops[0].lower()
@@ -206,7 +206,8 @@ class ThisDeviceCommand(Command):
 
             value_extracted = ThisDeviceCommand.get_setting_str_to_value('persistent_login', value)
             loginv3.LoginV3API.set_user_setting(params, 'persistent_login', value_extracted)
-            msg = (bcolors.OKGREEN + "ENABLED" + bcolors.ENDC) if value_extracted == '1' else (bcolors.FAIL + "DISABLED" + bcolors.ENDC)
+            msg = (bcolors.OKGREEN + "ENABLED" + bcolors.ENDC) if value_extracted == '1' else (
+                        bcolors.FAIL + "DISABLED" + bcolors.ENDC)
             print("Successfully " + msg + " Persistent Login on this device")
 
             register_device()
@@ -217,14 +218,16 @@ class ThisDeviceCommand(Command):
 
                 if this_device:
                     if 'encryptedDataKeyPresent' not in this_device:
-                        print(bcolors.WARNING + "\tThis device is not registered. To register, run command `this-device register`" + bcolors.ENDC)
+                        print(
+                            bcolors.WARNING + "\tThis device is not registered. To register, run command `this-device register`" + bcolors.ENDC)
 
         elif action == 'ip_auto_approve' or action == 'ip-auto-approve' or action == 'iaa':
             value = ops[1]
 
             value_extracted = ThisDeviceCommand.get_setting_str_to_value('ip_disable_auto_approve', value)
             loginv3.LoginV3API.set_user_setting(params, 'ip_disable_auto_approve', value_extracted)
-            msg = (bcolors.OKGREEN + "ENABLED" + bcolors.ENDC) if value_extracted == '1' else (bcolors.FAIL + "DISABLED" + bcolors.ENDC)
+            msg = (bcolors.OKGREEN + "ENABLED" + bcolors.ENDC) if value_extracted == '1' else (
+                        bcolors.FAIL + "DISABLED" + bcolors.ENDC)
             print("Successfully " + msg + " 'ip_auto_approve'")
 
         elif action == 'timeout' or action == 'to':
@@ -235,7 +238,8 @@ class ThisDeviceCommand(Command):
             print("Successfully modified 'logout_timer' setting")
 
         else:
-            raise Exception("Unknown sub-command " + action + ". Available sub-commands: ", ", ".join(this_device_available_command_verbs))
+            raise Exception("Unknown sub-command " + action + ". Available sub-commands: ",
+                            ", ".join(this_device_available_command_verbs))
 
     @staticmethod
     def get_setting_str_to_value(name: str, value: str):
@@ -281,7 +285,9 @@ class ThisDeviceCommand(Command):
         else:
             current_device_token = params.config['device_token']
 
-        this_device = next((item for item in devices if compare_device_tokens(item['encryptedDeviceToken'], current_device_token)), None)
+        this_device = next(
+            (item for item in devices if compare_device_tokens(item['encryptedDeviceToken'], current_device_token)),
+            None)
 
         return acct_summary_dict, this_device
 
@@ -294,7 +300,8 @@ class ThisDeviceCommand(Command):
         print("{:>20}: {}".format('Client Version', this_device['clientVersion']))
 
         if 'encryptedDataKeyPresent' in this_device:
-            print("{:>20}: {}".format('Data Key Present', (bcolors.OKGREEN + 'YES' + bcolors.ENDC) if this_device['encryptedDataKeyPresent'] else (bcolors.FAIL + 'NO' + bcolors.ENDC)))
+            print("{:>20}: {}".format('Data Key Present', (bcolors.OKGREEN + 'YES' + bcolors.ENDC) if this_device[
+                'encryptedDataKeyPresent'] else (bcolors.FAIL + 'NO' + bcolors.ENDC)))
         else:
             print("{:>20}: {}".format('Data Key Present', (bcolors.FAIL + 'missing' + bcolors.ENDC)))
 
@@ -325,7 +332,8 @@ class ThisDeviceCommand(Command):
         else:
             print("{:>20}: Default".format('Logout Timeout'))
 
-        print("\nAvailable sub-commands: ", bcolors.OKBLUE + (", ".join(this_device_available_command_verbs)) + bcolors.ENDC)
+        print("\nAvailable sub-commands: ",
+              bcolors.OKBLUE + (", ".join(this_device_available_command_verbs)) + bcolors.ENDC)
 
 
 class RecordDeleteAllCommand(Command):
@@ -388,13 +396,16 @@ class WhoamiCommand(Command):
                 print('{0:>20s} {1:>20s}: {2}'.format('Account', 'Type', account_type_name))
                 print('{0:>20s} {1:>20s}: {2}'.format('', 'Renewal Date', params.license['expiration_date']))
                 if 'bytes_total' in params.license:
-                    storage_bytes = int(params.license['bytes_total'])  # note: int64 in protobuf in python produces string as opposed to an int or long.
+                    storage_bytes = int(params.license[
+                                            'bytes_total'])  # note: int64 in protobuf in python produces string as opposed to an int or long.
                     storage_gb = storage_bytes >> 30
                     storage_bytes_used = params.license['bytes_used'] if 'bytes_used' in params.license else 0
                     print('{0:>20s} {1:>20s}: {2}GB'.format('Storage', 'Capacity', storage_gb))
-                    storage_usage = (int(storage_bytes_used) * 100 // storage_bytes) if storage_bytes != 0 else 0     # note: int64 in protobuf in python produces string  as opposed to an int or long.
+                    storage_usage = (int(
+                        storage_bytes_used) * 100 // storage_bytes) if storage_bytes != 0 else 0  # note: int64 in protobuf in python produces string  as opposed to an int or long.
                     print('{0:>20s} {1:>20s}: {2}%'.format('', 'Usage', storage_usage))
-                    print('{0:>20s} {1:>20s}: {2}'.format('', 'Renewal Date', params.license['storage_expiration_date']))
+                    print(
+                        '{0:>20s} {1:>20s}: {2}'.format('', 'Renewal Date', params.license['storage_expiration_date']))
 
             if is_verbose:
                 print('')
@@ -474,7 +485,7 @@ class CheckEnforcementsCommand(Command):
                         try:
                             api.communicate(params, e_rq)
                             logging.info('%s enterprise invite', 'Accepted' if action == 'accept' else 'Declined')
-                            #TODO reload enterprise settings
+                            # TODO reload enterprise settings
                         except Exception as e:
                             logging.error('Enterprise %s failure: %s', action, e)
 
@@ -484,7 +495,8 @@ class CheckEnforcementsCommand(Command):
                 print('Your Keeper administrator has enabled the ability to transfer your vault records\n'
                       'in accordance with company operating procedures and policies.\n'
                       'Please acknowledge this change in account settings by typing ''Accept''.')
-                print('If you do not accept this change by {0}, you will be locked out of your account.'.format(dt.strftime('%a, %d %b %Y')))
+                print('If you do not accept this change by {0}, you will be locked out of your account.'.format(
+                    dt.strftime('%a, %d %b %Y')))
 
                 try:
                     api.accept_account_transfer_consent(params, params.settings['share_account_to'])
@@ -572,7 +584,7 @@ class ConnectSshAgent:
             self._fd.settimeout(1)
             self._fd.connect(self.path)
         elif os.name == 'nt':
-            path = self.path or  r'\\.\pipe\openssh-ssh-agent'
+            path = self.path or r'\\.\pipe\openssh-ssh-agent'
             self._fd = open(path, 'rb+', buffering=0)
         else:
             raise Exception('SSH Agent Connect: Unsupported platform')
@@ -582,7 +594,7 @@ class ConnectSshAgent:
         if self._fd:
             self._fd.close()
 
-    def send(self, rq):     # type: (bytes) -> bytes
+    def send(self, rq):  # type: (bytes) -> bytes
         if self._fd:
             rq_len = len(rq)
             to_send = rq_len.to_bytes(4, byteorder='big') + rq
@@ -603,16 +615,16 @@ class ConnectSshAgent:
 
 class ConnectEndpoint:
     def __init__(self, name, description, record_uid, record_title, paths):
-        self.name = name                    # type: str
-        self.description = description      # type: str
-        self.record_uid = record_uid        # type: str
-        self.record_title = record_title    # type: str
-        self.paths = paths                  # type: list
+        self.name = name  # type: str
+        self.description = description  # type: str
+        self.record_uid = record_uid  # type: str
+        self.record_title = record_title  # type: str
+        self.paths = paths  # type: list
 
 
 class ConnectCommand(Command):
-    LastRevision = 0 # int
-    Endpoints = []          # type: [ConnectEndpoint]
+    LastRevision = 0  # int
+    Endpoints = []  # type: [ConnectEndpoint]
 
     def get_parser(self):
         return connect_parser
@@ -631,7 +643,7 @@ class ConnectCommand(Command):
                 rpos = endpoint.rfind(':')
                 if rpos > 0:
                     try_path = endpoint[:rpos]
-                    endpoint_name = endpoint[rpos+1:]
+                    endpoint_name = endpoint[rpos + 1:]
                 else:
                     try_path = endpoint
                     endpoint_name = ''
@@ -689,7 +701,8 @@ class ConnectCommand(Command):
             title = endpoint.record_title
             folder = endpoint.paths[0] if len(endpoint.paths) > 0 else '/'
             if filter_by:
-                if not any([x for x in [endpoint.name.lower(), title.lower(), folder.lower()] if x.find(filter_by) >= 0]):
+                if not any(
+                        [x for x in [endpoint.name.lower(), title.lower(), folder.lower()] if x.find(filter_by) >= 0]):
                     continue
             if len(title) > 23:
                 title = title[:20] + '...'
@@ -707,19 +720,18 @@ class ConnectCommand(Command):
             with ConnectSshAgent(ssh_socket_path) as fd:
                 for rq in delete_requests:
                     recv_payload = fd.send(rq)
-                    if recv_payload and  recv_payload[0] == SSH_AGENT_FAILURE:
+                    if recv_payload and recv_payload[0] == SSH_AGENT_FAILURE:
                         logging.info('Failed to delete added ssh key')
         except Exception as e:
             logging.error(e)
 
-
     @staticmethod
     def add_environment_variables(params, endpoint, record, temp_files, non_shared):
         # type: (KeeperParams, str, Record, [str], dict) -> [str]
-        rs = []         # type: [str]
+        rs = []  # type: [str]
         key_prefix = 'connect:{0}:env:'.format(endpoint)
         for cf in record.custom_fields:
-            cf_name = cf['name']        # type: str
+            cf_name = cf['name']  # type: str
             if cf_name.startswith(key_prefix):
                 key_name = cf_name[len(key_prefix):]
                 if not key_name:
@@ -746,9 +758,9 @@ class ConnectCommand(Command):
         key_prefix = 'connect:{0}:ssh-key'.format(endpoint)
         ssh_socket_path = os.environ.get('SSH_AUTH_SOCK')
         for cf in record.custom_fields:
-            cf_name = cf['name']        # type: str
+            cf_name = cf['name']  # type: str
             if cf_name.startswith(key_prefix):
-                key_name = cf_name[len(key_prefix)+1:] or 'Commander'
+                key_name = cf_name[len(key_prefix) + 1:] or 'Commander'
                 cf_value = cf['value']  # type: str
                 parsed_values = []
                 while True:
@@ -773,13 +785,14 @@ class ConnectCommand(Command):
                         payload += ConnectCommand.ssh_agent_encode_long(private_key.n)
                         payload += ConnectCommand.ssh_agent_encode_long(private_key.e)
                         payload += ConnectCommand.ssh_agent_encode_long(private_key.d)
-                        payload += ConnectCommand.ssh_agent_encode_long(int(Integer(private_key.q).inverse(private_key.p)))
+                        payload += ConnectCommand.ssh_agent_encode_long(
+                            int(Integer(private_key.q).inverse(private_key.p)))
                         payload += ConnectCommand.ssh_agent_encode_long(private_key.p)
                         payload += ConnectCommand.ssh_agent_encode_long(private_key.q)
                         payload += ConnectCommand.ssh_agent_encode_str(key_name)
                         # windows ssh implementation does not support constrained identities
-                        #payload += SSH_AGENT_CONSTRAIN_LIFETIME.to_bytes(1, byteorder='big')
-                        #payload += int(10).to_bytes(4, byteorder='big')
+                        # payload += SSH_AGENT_CONSTRAIN_LIFETIME.to_bytes(1, byteorder='big')
+                        # payload += int(10).to_bytes(4, byteorder='big')
 
                         recv_payload = fd.send(payload)
                         if recv_payload and recv_payload[0] == SSH_AGENT_FAILURE:
@@ -788,17 +801,19 @@ class ConnectCommand(Command):
                         payload = ConnectCommand.ssh_agent_encode_str('ssh-rsa')
                         payload += ConnectCommand.ssh_agent_encode_long(private_key.e)
                         payload += ConnectCommand.ssh_agent_encode_long(private_key.n)
-                        payload = SSH2_AGENTC_REMOVE_IDENTITY.to_bytes(1, byteorder='big') + ConnectCommand.ssh_agent_encode_bytes(payload)
+                        payload = SSH2_AGENTC_REMOVE_IDENTITY.to_bytes(1,
+                                                                       byteorder='big') + ConnectCommand.ssh_agent_encode_bytes(
+                            payload)
 
                         rs.append(payload)
         return rs
 
     @staticmethod
-    def ssh_agent_encode_bytes(b):      # type: (bytes) -> bytes
+    def ssh_agent_encode_bytes(b):  # type: (bytes) -> bytes
         return len(b).to_bytes(4, byteorder='big') + b
 
     @staticmethod
-    def ssh_agent_encode_long(l):       # type: (int) -> bytes
+    def ssh_agent_encode_long(l):  # type: (int) -> bytes
         len = (l.bit_length() + 7) // 8
         b = l.to_bytes(length=len, byteorder='big')
         if b[0] >= 0x80:
@@ -806,7 +821,7 @@ class ConnectCommand(Command):
         return ConnectCommand.ssh_agent_encode_bytes(b)
 
     @staticmethod
-    def ssh_agent_encode_str(s):                  # type: (str) -> bytes
+    def ssh_agent_encode_str(s):  # type: (str) -> bytes
         return ConnectCommand.ssh_agent_encode_bytes(s.encode('utf-8'))
 
     @staticmethod
@@ -836,11 +851,13 @@ class ConnectCommand(Command):
                             path = '/' + get_folder_path(params, folder_uid, '/')
                             paths.append(path)
                         for endpoint in endpoints:
-                            epoint = ConnectEndpoint(endpoint, endpoints_desc.get(endpoint) or '', record_uid, record.title, paths)
+                            epoint = ConnectEndpoint(endpoint, endpoints_desc.get(endpoint) or '', record_uid,
+                                                     record.title, paths)
                             ConnectCommand.Endpoints.append(epoint)
             ConnectCommand.Endpoints.sort(key=lambda x: x.name)
 
     attachment_cache = {}
+
     @staticmethod
     def load_attachment_file(params, attachment, record):
         # type: (KeeperParams, dict, Record) -> bytes
@@ -897,7 +914,8 @@ class ConnectCommand(Command):
                 attachment = None
                 if record.attachments:
                     for atta in record.attachments:
-                        if file_name == atta['id'] or file_name.lower() in [atta[x].lower() for x in ['name', 'title'] if x in atta]:
+                        if file_name == atta['id'] or file_name.lower() in [atta[x].lower() for x in ['name', 'title']
+                                                                            if x in atta]:
                             attachment = atta
                             break
                 if not attachment:
@@ -909,7 +927,7 @@ class ConnectCommand(Command):
             if file_name not in ConnectCommand.attachment_cache:
                 logging.error('Attachment file \"%s\" not found', file_name)
                 return None
-            body = ConnectCommand.attachment_cache[file_name] # type: bytes
+            body = ConnectCommand.attachment_cache[file_name]  # type: bytes
             if parameter.startswith('file:'):
                 tf = tempfile.NamedTemporaryFile(delete=False)
                 tf.write(body)
@@ -967,7 +985,8 @@ class ConnectCommand(Command):
                 command = ConnectCommand.get_command_string(params, record, command, temp_files, non_shared)
                 if command:
                     added_keys = ConnectCommand.add_ssh_keys(params, endpoint, record, temp_files, non_shared)
-                    added_envs = ConnectCommand.add_environment_variables(params, endpoint, record, temp_files, non_shared)
+                    added_envs = ConnectCommand.add_environment_variables(params, endpoint, record, temp_files,
+                                                                          non_shared)
                     logging.info('Connecting to %s...', endpoint)
                     os.system(command)
                     if added_keys:
@@ -1003,12 +1022,13 @@ class EchoCommand(Command):
             names.sort()
             for name in names:
                 if name in params.environment_variables:
-                    print('${{{0}}} = "{1}"'.format(name, params.environment_variables[name] ))
+                    print('${{{0}}} = "{1}"'.format(name, params.environment_variables[name]))
                 else:
                     print('${{{0}}} ='.format(name))
 
     def is_authorised(self):
         return False
+
 
 class SetCommand(Command):
     def get_parser(self):
@@ -1037,7 +1057,7 @@ class HelpCommand(Command):
                     cmd = ali[0]
                 else:
                     cmd = ali
-            parser = None       # type: argparse.ArgumentParser or None
+            parser = None  # type: argparse.ArgumentParser or None
             if cmd in commands:
                 parser = commands[cmd].get_parser()
             elif cmd in enterprise_commands:
@@ -1076,3 +1096,13 @@ class DeleteCorruptedCommand(Command):
                     logging.warning("%s records failed to delete", len(failures))
         else:
             logging.info('No corrupted records are found.')
+
+
+class ShowCommand(Command):
+    """Show configuration"""
+
+    def execute(self, params, **kwargs):
+        pprint.pprint(dict([(k,v) for k,v in params.__dict__.items() if not k.startswith('_')]))
+
+    def is_authorised(self):
+        return False
