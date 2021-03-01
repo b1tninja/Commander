@@ -36,15 +36,13 @@ class bcolors:
 
 
 def welcome(params: KeeperParams):
-    api_url = params.url
-    url = urlunparse((api_url.scheme, api_url.netloc, '/', None, None, None))
     print(bcolors.OKBLUE)
     print('   _  __  ')
     print('  | |/ /___ ___ _ __  ___ _ _ ')
     print('  | \' </ -_) -_) \'_ \\/ -_) \'_|')
     print('  |_|\\_\\___\\___| .__/\\___|_|')
     print(f'  {bcolors.ENDC}    {bcolors.BOLD}SECURITY{bcolors.ENDC} {bcolors.OKBLUE}|_|{bcolors.ENDC} {bcolors.BOLD}{params.rest_context.region.name}{bcolors.ENDC} v{__version__}')
-    print(f'   {url}')
+    print(f'   {params.url}')
     print(bcolors.FAIL, 'password manager & digital vault' + bcolors.ENDC)
     print('')
     print('')

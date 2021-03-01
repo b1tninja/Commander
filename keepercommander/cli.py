@@ -529,9 +529,9 @@ def get_prompt(params):
             if params.root_folder:
                 params.current_folder = ''
             else:
-                return f'{params.server} ({params.user})> '
+                return f'{params.domain} ({params.user})> '
     else:
-        return f'Please login. Type "commands" for a description of available commands, or "help [command]" for additional information.\n{params.server} {sys.argv[0]} {os.getcwd()}>'
+        return f'Please login.\n{params.domain} {os.path.basename(sys.argv[0])} {os.getcwd()}>'
 
     prompt = ''
     f = params.folder_cache[params.current_folder] if params.current_folder in params.folder_cache else params.root_folder

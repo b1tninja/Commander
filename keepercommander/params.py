@@ -266,7 +266,11 @@ class KeeperParams:
 
     def __get_url(self):
         url = urlparse(self.__server)
-        return url
+        return urlunparse((url.scheme, url.netloc, '/', None, None, None))
+
+    def __get_domain(self):
+        url = urlparse(self.__server)
+        return url.netloc
 
     def __get_server(self):
         return self.__server
@@ -286,6 +290,7 @@ class KeeperParams:
                 })
 
     region = property(__get_server)
+    domain = property(__get_domain)
     url = property(__get_url)
     server = property(__get_server, __set_server)
     rest_context = property(__get_rest_context)
