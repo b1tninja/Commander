@@ -1007,6 +1007,8 @@ class EchoCommand(Command):
                 else:
                     print('${{{0}}} ='.format(name))
 
+    def is_authorised(self):
+        return False
 
 class SetCommand(Command):
     def get_parser(self):
