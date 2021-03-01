@@ -1118,7 +1118,7 @@ class RegionCommand(Command):
 
     def execute(self, params, **kwargs):
         print('')
-        print(f'Current Keeper Security region:  {params.region}')
+        print(f'Server region: {params.region} - {params.server}')
 
     def is_authorised(self):
         return False
