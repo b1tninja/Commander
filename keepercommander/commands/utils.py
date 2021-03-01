@@ -64,6 +64,7 @@ def register_commands(commands):
     commands['set'] = SetCommand()
     commands['help'] = HelpCommand()
     commands['show'] = ShowCommand()
+    commands['region'] = RegionCommand()
 
 
 def register_command_info(aliases, command_info):
@@ -1105,6 +1106,19 @@ class ShowCommand(Command):
         print('')
         print(f'Displaying {params}')
         pprint.pprint(dict([(k,v) for k,v in params.__dict__.items() if not k.startswith('_')]))
+
+    def is_authorised(self):
+        #"""Doesn't require authorization"""
+        # TODO: considerations around display of any key material... I feel it shows transparency, but perhaps we treat the user as untrusted to prevent accidents.
+        return False
+
+
+class RegionCommand(Command):
+    """Region control"""
+
+    def execute(self, params, **kwargs):
+        print('')
+        print(f'Current Keeper Security region:  {params.region}')
 
     def is_authorised(self):
         return False

@@ -289,7 +289,7 @@ class KeeperParams:
                                x in {'record_uid', 'file_format', 'attachment_id', 'to_username'}}
                 })
 
-    region = property(__get_server)
+    region = property(__get_region)
     domain = property(__get_domain)
     url = property(__get_url)
     server = property(__get_server, __set_server)
