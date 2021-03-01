@@ -1102,6 +1102,8 @@ class ShowCommand(Command):
     """Show configuration"""
 
     def execute(self, params, **kwargs):
+        print('')
+        print(f'Displaying {params}')
         pprint.pprint(dict([(k,v) for k,v in params.__dict__.items() if not k.startswith('_')]))
 
     def is_authorised(self):
