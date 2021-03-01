@@ -7,9 +7,12 @@
 # Keeper Commander 
 # Contact: ops@keepersecurity.com
 #
+from . import __version__
 import json
 from collections import OrderedDict as OD
 from typing import Optional
+
+from urllib.parse import urlunparse
 
 from asciitree import LeftAligned
 from colorama import init
@@ -33,13 +36,15 @@ class bcolors:
 
 
 def welcome(params: KeeperParams):
+    api_url = params.url
+    url = urlunparse((api_url.scheme, api_url.netloc, '/', None, None, None))
     print(bcolors.OKBLUE)
     print(' _  __  ')
     print('| |/ /___ ___ _ __  ___ _ _ ')
     print('| \' </ -_) -_) \'_ \\/ -_) \'_|')
     print('|_|\\_\\___\\___| .__/\\___|_|')
-    print(f'{bcolors.ENDC}    {bcolors.BOLD}SECURITY{bcolors.ENDC} {bcolors.OKBLUE}|_|{bcolors.ENDC} {bcolors.BOLD}{params.rest_context.region.name}{bcolors.ENDC}')
-    print(params.server)
+    print(f'{bcolors.ENDC}    {bcolors.BOLD}SECURITY{bcolors.ENDC} {bcolors.OKBLUE}|_|{bcolors.ENDC} {bcolors.BOLD}{params.rest_context.region.name}{bcolors.ENDC} v{__version__}')
+    print(url)
     print(bcolors.FAIL, 'password manager & digital vault' + bcolors.ENDC)
     print('')
     print('')

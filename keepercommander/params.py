@@ -264,6 +264,10 @@ class KeeperParams:
     def __get_region(self):
         return self.rest_context.region.name
 
+    def __get_url(self):
+        url = urlparse(self.__server)
+        return url
+
     def __get_server(self):
         return self.__server
 
@@ -282,5 +286,6 @@ class KeeperParams:
                 })
 
     region = property(__get_server)
+    url = property(__get_url)
     server = property(__get_server, __set_server)
     rest_context = property(__get_rest_context)
