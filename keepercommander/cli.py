@@ -49,6 +49,8 @@ not_msp_admin_error_msg = 'This command is restricted to Keeper MSP administrato
                           'command before executing this command.'
 
 
+logger = logging.getLogger(__name__)
+
 def display_command_help(show_enterprise = False, show_shell = False):
     max_length = functools.reduce(lambda x, y: len(y) if len(y) > x else x, command_info.keys(), 0)
 
@@ -306,6 +308,7 @@ def do_command(params, command_line):
 
                 if command.is_authorised():
                     if not params.session_token:
+                        logger.warning("Command requires authorization, logging in...")
                         try:
                             prompt_for_credentials(params)
                             api.login(params)
@@ -372,21 +375,26 @@ def runcommands(params):
             except KeyboardInterrupt:
                 keep_running = False
 
+def cli_input(prompt):
+    try:
+        # TODO consider immediate pbkdf2
+        return input(prompt)
+    except (KeyboardInterrupt, EOFError):
+        logging.warning("Input aborted!")
 
 def prompt_for_username_if_needed(params):
     while not params.user:
         # TODO: ENV var possibly?
         params.user = getpass.getpass(prompt='User(Email): ', stream=None)
 
-
 def prompt_for_credentials(params: KeeperParams):
 
     if not params.login_v3:
         prompt_for_username_if_needed(params)
-
         while not params.password:
             try:
-                params.password = getpass.getpass(prompt='Password: ', stream=None)
+                # TODO consider immediate pbkdf2
+                params.password = getpass.getpass(prompt=f'{params.user} password: ', stream=None)
             except KeyboardInterrupt:
                 print('')
             except EOFError:
@@ -407,8 +415,21 @@ def force_quit():
 
 prompt_session = None
 
+def get_log_level(params):
+    if params.debug:
+        return logging.DEBUG
+    elif params.batch_mode:
+        return logging.WARNING
+    else:
+        return logging.INFO
+
+def get_logger(params):
+    logger = logging.getLogger(__name__)
+    return logger
 
 def loop(params):  # type: (KeeperParams) -> int
+
+    logging.info('test')
     logging.debug('Params: %s', params)
 
     global prompt_session
@@ -427,8 +448,7 @@ def loop(params):  # type: (KeeperParams) -> int
                                            complete_while_typing=False)
 
         display.welcome(params)
-    else:
-        logging.getLogger().setLevel(logging.WARNING)
+
 
     if params.user:
         if len(params.commands) == 0:

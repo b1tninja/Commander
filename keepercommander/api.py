@@ -46,6 +46,8 @@ unpad_binary = lambda s: s[0:-s[-1]]
 unpad_char = lambda s: s[0:-ord(s[-1])]
 
 
+logger = logging.getLogger(__name__)
+
 def run_command(params, request):
     # type: (KeeperParams, dict) -> dict
     if 'client_version' not in request:
@@ -74,13 +76,13 @@ install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
 
 def login(params):
     # type: (KeeperParams) -> None
+    logger.info(f"Logging in to {params.domain} as '{params.user}'.")
 
     if params.login_v3:
-        logging.info('Logging in to Keeper Commander')
         loginv3.LoginV3Flow.login(params)
         return
 
-    logging.info("Logging in...")
+    logger.info("Logging in...")
 
     global should_cancel_u2f
     global u2f_response

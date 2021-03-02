@@ -35,7 +35,7 @@ class LoginV3Flow:
     @staticmethod
     def login(params: KeeperParams):
 
-        logging.debug("Login v3 Start as '%s'" % params.user)
+        logging.debug("Login v3 Start")
 
         CommonHelperMethods.startup_check(params)
 
