@@ -429,7 +429,6 @@ def get_logger(params):
 
 def loop(params):  # type: (KeeperParams) -> int
 
-    logging.info('test')
     logging.debug('Params: %s', params)
 
     global prompt_session

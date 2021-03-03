@@ -645,11 +645,11 @@ class LoginV3API:
 
         if cloneCode:
             rq.cloneCode = cloneCode
-            rq.username = ''
+            # rq.username = ''
 
         api_request_payload = proto.ApiRequestPayload()
         api_request_payload.payload = rq.SerializeToString()
-
+        logging.debug(api_request_payload)
         rs = rest_api.execute_rest(params.rest_context, 'authentication/start_login', api_request_payload)
 
         if type(rs) == bytes:

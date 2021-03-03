@@ -228,7 +228,7 @@ class ThisDeviceCommand(Command):
             value_extracted = ThisDeviceCommand.get_setting_str_to_value('ip_disable_auto_approve', value)
             loginv3.LoginV3API.set_user_setting(params, 'ip_disable_auto_approve', value_extracted)
             msg = (bcolors.OKGREEN + "ENABLED" + bcolors.ENDC) if value_extracted == '1' else (
-                        bcolors.FAIL + "DISABLED" + bcolors.ENDC)
+                    bcolors.FAIL + "DISABLED" + bcolors.ENDC)
             print("Successfully " + msg + " 'ip_auto_approve'")
 
         elif action == 'timeout' or action == 'to':
@@ -429,27 +429,32 @@ class LoginCommand(Command):
     def is_authorised(self):
         return False
 
-    def execute(self, params, **kwargs):
-        params.clear_session()
-
-        user = kwargs.get('email') or ''
-        password = kwargs.get('password') or ''
+    def execute(self, params, email=None, password=None, **kwargs):
+        # params.clear_session()
 
         try:
-            if not user:
-                user = input('... {0:>16}: '.format('User(Email)')).strip()
-            if not user:
+            if email is None:
+                # Command did not explicitly give the username
+                if params.user:
+                    # Assume the known user from config
+                    email = params.user
+                else:
+                    # Prompt the user
+                    email = input('... {0:>16}: '.format('User(Email)')).strip()
+
+            if not email:
+                logging.debug("Empty user input")
                 return
 
             if not password and not params.login_v3:
                 password = getpass.getpass(prompt='... {0:>16}: '.format('Password'), stream=None).strip()
                 if not password:
                     return
-        except KeyboardInterrupt as e:
+        except (KeyboardInterrupt, EOFError) as e:
             logging.info('Canceled')
             return
 
-        params.user = user.lower()
+        params.user = email.lower()
         params.password = password
 
         api.login(params)
@@ -1105,13 +1110,12 @@ class ShowCommand(Command):
     def execute(self, params, **kwargs):
         print('')
         print(f'Displaying {params}')
-        pprint.pprint(dict([(k,v) for k,v in params.__dict__.items() if not k.startswith('_')]))
+        pprint.pprint(dict([(k, v) for k, v in params.__dict__.items() if not k.startswith('_')]))
 
     def is_authorised(self):
-        #"""Doesn't require authorization"""
+        # """Doesn't require authorization"""
         # TODO: considerations around display of any key material... I feel it shows transparency, but perhaps we treat the user as untrusted to prevent accidents.
         return False
-
 
 class RegionCommand(Command):
     """Region control"""
