@@ -395,10 +395,9 @@ def prompt_for_credentials(params: KeeperParams):
             try:
                 # TODO consider immediate pbkdf2
                 params.password = getpass.getpass(prompt=f'{params.user} password: ', stream=None)
-            except KeyboardInterrupt:
-                print('')
-            except EOFError:
-                return 0
+            except (KeyboardInterrupt, EOFError):
+                logging.debug("Empty user input")
+                return
 
 
 def force_quit():
