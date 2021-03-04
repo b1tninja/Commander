@@ -25,12 +25,17 @@ from . import api
 from . import cli
 from . import rest_api, APIRequest_pb2 as proto, AccountSummary_pb2 as proto_as
 from .display import bcolors
-from .error import KeeperApiError, CommandError
+from .error import KeeperApiError, CommandError, DeviceNotRegistered
 from .params import KeeperParams
 
 warned_on_fido_package = False
 
 logger = logging.getLogger(__name__)
+
+
+def server_base_from_domain(domain):
+    return urlunparse(('https', domain, '/api/rest/', None, None, None))
+
 
 class LoginV3Flow:
 
@@ -116,11 +121,11 @@ class LoginV3Flow:
                 # TODO: track previous login state, have a login session instance/manager. "if previously required DEVICE_APPROVAL"
 
                 p = urlparse(params.server)
-                new_url = urlunparse((p.scheme, resp.stateSpecificValue, p.path, None, None, None))
+                new_url = server_base_from_domain(resp.stateSpecificValue)
                 new_domain = resp.stateSpecificValue.upper()
 
                 # TODO: refactor server environments/regions into a central location where all the helpers can reside
-                if not p.netloc.upper() in ['KEEPERSECURITY.COM', 'KEEPERSECURITY.EU']:
+                if not new_domain in ['KEEPERSECURITY.COM', 'KEEPERSECURITY.EU']:
                     logger.warning(f"Server has indicated to redirect login to an unrecognized data center region: {p.netloc}")
                 else:
                     logging.warning(f"This account is registered in '{new_domain}' but you are trying to login to '{params.domain}'.")
@@ -137,8 +142,11 @@ class LoginV3Flow:
                 # if not resp:
                 #     logging.warning("Was unable to register device region")
                 #     # TODO: abort login? unset token? try anyway?
-
-                resp = LoginV3API.startLoginMessage(params, encryptedDeviceToken)
+                try:
+                    LoginV3Flow.login(params)
+                except DeviceNotRegistered:
+                    # SOMEHOW ACQUIRE params.session_token
+                    LoginV3API.register_device_in_region(params)
 
             elif resp.loginState == proto.REQUIRES_AUTH_HASH:
                 # TODO: "redirect" should take precedence maybe?
@@ -162,7 +170,7 @@ class LoginV3Flow:
                 params.session_token_bytes = resp.encryptedSessionToken
                 params.session_token_restriction = resp.sessionTokenType  # getSessionTokenScope(login_resp.sessionTokenType)
                 params.clone_code = resp.cloneCode
-                # params.device_token_bytes = encryptedDeviceToken
+                params.device_token_bytes = encryptedDeviceToken
                 # auth_context.message_session_uid = login_resp.messageSessionUid
 
                 if not params.device_private_key:
@@ -525,7 +533,10 @@ class LoginV3Flow:
                 warning_msg = bcolors.WARNING + "Unable to verify 2FA code '" + otp_code + "'. Regenerate the code and try again." + bcolors.ENDC
                 logging.warning(warning_msg)
 
+
 class LoginV3API:
+
+    @staticmethod
 
     @staticmethod
     def rest_request(params: KeeperParams, api_endpoint: str, rq):
@@ -638,7 +649,7 @@ class LoginV3API:
             if 'error' in rs and 'message' in rs:
                 if rs['error'] == 'region_redirect':
                     params.device_id = None
-                    params.server_base = 'https://{0}/'.format(rs['region_host'])
+                    params.server_base = server_base_from_domain(['region_host'])
                     # logging.warning('Switching to region: %s', rs['region_host'])
                     # continue
                 if rs['error'] == 'bad_request':
@@ -680,7 +691,7 @@ class LoginV3API:
             if 'error' in rs and 'message' in rs:
                 if rs['error'] == 'region_redirect':
                     params.device_id = None
-                    params.server_base = 'https://{0}/'.format(rs['region_host'])
+                    params.server_base = server_base_from_domain(rs['region_host'])
                     # logging.warning('Switching to region: %s', rs['region_host'])
                     # continue
                 if rs['error'] == 'bad_request':
@@ -689,20 +700,10 @@ class LoginV3API:
                     # continue
 
                 if 'additional_info' in rs:
-                    err_msg = "\n" + rs['additional_info']
-
                     if rs['error'] == 'device_not_registered':
-
-                        logging.warning(f"Attempting to register device in this region ({params.region}).")
-                        try:
-                            resp = LoginV3API.register_device_in_region(params)
-                            if resp:
-                                return LoginV3API.startLoginMessage(params, encryptedDeviceToken, cloneCode=cloneCode, loginType=loginType)
-
-                        except Exception as e:
-                            err_msg += f"\nDevice was not registered in region ({params.region}): {e}"
-
-                    raise KeeperApiError(rs['error'], err_msg)
+                        raise DeviceNotRegistered(rs['error'], f"Attempting to register device in this region ({params.region}).")
+                    else:
+                        raise KeeperApiError(rs['error'], rs['additional_info'])
                 else:
                     raise KeeperApiError(rs['error'], rs['message'])
 

@@ -57,6 +57,11 @@ class KeeperApiError(CommunicationError):
         return self.message or self.result_code
 
 
+
+class DeviceNotRegistered(KeeperApiError):
+    pass
+
+
 class CryptoError(Error):
     """Exception raised with cryptography issues
 
