@@ -22,45 +22,54 @@ LAST_TEAM_UID = 'last_team_uid'
 
 
 class KeeperRegion(enum.Enum):
+    UNKNOWN = enum.auto()
     COM = enum.auto()
     EU = enum.auto()
 
 
 class RestApiContext:
-    __REGION_SERVERS = {
-        KeeperRegion.COM: 'keepersecurity.com',
-        KeeperRegion.EU: 'keepersecurity.eu',
-        # KeeperRegion.US: 'keepersecurity.us'
-    }
-
-    DEFAULT_REGION = KeeperRegion.COM
-
-    def __init__(self, region=DEFAULT_REGION, locale='en_US', device_id=None, **kwargs):
-        if region:
-            if type(region) is str:
-                region = region.upper()
-                try:
-                    region = KeeperRegion[region]
-                except:
-                    logging.warning(f"Unknown region '{region}' in configuration, using default instead.")
-                    region = KeeperRegion.COM
-            else:
-                assert type(region) is KeeperRegion
-
-        elif 'server' in kwargs and kwargs['server']:
-            logging.debug("Update config.json region")
-            p = urlparse(kwargs['server'])
-            for server_region, server in self.__REGION_SERVERS.items():
-                if server == p.netloc.lower():
-                    region = server_region
-                    break
-            else:
-                region = KeeperRegion.COM
-                logging.warning(f"Unrecognized domain: {p.netloc} configured.")
+    # __REGION_SERVERS = {
+    #     KeeperRegion.COM: 'keepersecurity.com',
+    #     KeeperRegion.EU: 'keepersecurity.eu',
+    # }
+    #
+    # DEFAULT_REGION = KeeperRegion.COM
+    #
+    def __init__(self, server=None, locale='en_US', device_id=None, **kwargs):
+        if server is None:
+            server = 'https://keepersecurity.com/api/rest/'
         else:
-            region = KeeperRegion.COM
+            p = urlparse(server)
+            server = urlunparse(('https', p.netloc, '/api/rest/', None, None, None))
 
-        self.region = region
+        # if region is not None:
+        #     if type(region) is str:
+        #         region = region.upper()
+        #         try:
+        #             region = KeeperRegion[region]
+        #         except:
+        #             logging.warning(f"Unknown region '{region}' in configuration, using default instead.")
+        #             region = KeeperRegion.COM
+        #     else:
+        #         assert type(region) is KeeperRegion
+
+        # if 'server' in kwargs and kwargs['server']:
+        #     p = urlparse(kwargs['server'])
+        #     for server_region, domain in self.__REGION_SERVERS.items():
+        #         if domain.lower() == p.netloc.lower():
+        #             region = server_region
+        #             server = urlunparse(('https', domain, '/api/rest/', None, None, None))
+        #             break
+        #     else:
+        #         region = KeeperRegion.UNKNOWN
+        #         server = kwargs['server']
+        #         logging.warning(f"Unrecognized domain: {p.netloc} configured.")
+        # else:
+        #     region = KeeperRegion.COM
+        #
+        # TODO: property
+        self.region = KeeperRegion.UNKNOWN
+        self.__server_base = server
         self.transmission_key = None
         self.__server_key_id = 1
         self.locale = locale
@@ -68,7 +77,11 @@ class RestApiContext:
         self.__store_server_key = False
 
     def __get_server_base(self):
-        return urlunparse(('https', self.__REGION_SERVERS[self.region], '/api/rest/', None, None, None))
+        return self.__server_base
+
+    def __set_server_base(self, value):
+        # TODO: update region
+        self.__server_base = value
 
     def __get_server_key_id(self):
         return self.__server_key_id
@@ -87,7 +100,7 @@ class RestApiContext:
     def __get_store_server_key(self):
         return self.__store_server_key
 
-    server_base = property(__get_server_base)
+    server_base = property(__get_server_base, __set_server_base)
     device_id = property(__get_device_id, __set_device_id)
     server_key_id = property(__get_server_key_id, __set_server_key_id)
     store_server_key = property(__get_store_server_key)
@@ -138,7 +151,7 @@ class KeeperParams:
 
         device_id = base64.urlsafe_b64decode(device_id + '==')
 
-        rest_context = RestApiContext(region=region, server=server, device_id=device_id)
+        rest_context = RestApiContext(server=server, device_id=device_id)
         server = rest_context.server_base
 
         self.config_filename = config_filename

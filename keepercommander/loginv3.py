@@ -42,6 +42,7 @@ class LoginV3Flow:
         CommonHelperMethods.startup_check(params)
 
         encryptedDeviceToken = LoginV3API.get_device_id(params)
+        params.device_token_bytes = encryptedDeviceToken
 
         clone_code_bytes = CommonHelperMethods.config_file_get_property_as_bytes(params, 'clone_code')
 
@@ -112,6 +113,8 @@ class LoginV3Flow:
                 raise Exception('This account need to be created.' % rest_api.CLIENT_VERSION)
 
             elif resp.loginState == proto.REGION_REDIRECT:
+                # TODO: track previous login state, have a login session instance/manager. "if previously required DEVICE_APPROVAL"
+
                 p = urlparse(params.server)
                 new_url = urlunparse((p.scheme, resp.stateSpecificValue, p.path, None, None, None))
                 new_domain = resp.stateSpecificValue.upper()
@@ -125,16 +128,15 @@ class LoginV3Flow:
                 logging.info(f"Redirecting to {new_url}.")
 
                 # TODO: setters
-                params.rest_context.server_base = new_url
                 params.server = new_url
 
                 # TODO: explicitly update / save the config here, or just do it implicitly on params.erver setter
 
-                if params.device_token:
-                    # We may have just registered the device in the wrong region, lets re-register it in the suggested region
-                    resp = LoginV3API.register_device_in_region(params)
-                    if not resp:
-                        logging.warning("Was unable to register device in this region")
+                # # We may have just registered the device in the wrong region, lets re-register it in the suggested region
+                # resp = LoginV3API.register_device_in_region(params)
+                # if not resp:
+                #     logging.warning("Was unable to register device region")
+                #     # TODO: abort login? unset token? try anyway?
 
                 resp = LoginV3API.startLoginMessage(params, encryptedDeviceToken)
 
@@ -160,7 +162,7 @@ class LoginV3Flow:
                 params.session_token_bytes = resp.encryptedSessionToken
                 params.session_token_restriction = resp.sessionTokenType  # getSessionTokenScope(login_resp.sessionTokenType)
                 params.clone_code = resp.cloneCode
-                params.device_token_bytes = encryptedDeviceToken
+                # params.device_token_bytes = encryptedDeviceToken
                 # auth_context.message_session_uid = login_resp.messageSessionUid
 
                 if not params.device_private_key:
@@ -690,7 +692,15 @@ class LoginV3API:
                     err_msg = "\n" + rs['additional_info']
 
                     if rs['error'] == 'device_not_registered':
-                        err_msg += "\nRegister this user in the current region or change server region"
+
+                        logging.warning(f"Attempting to register device in this region ({params.region}).")
+                        try:
+                            resp = LoginV3API.register_device_in_region(params)
+                            if resp:
+                                return LoginV3API.startLoginMessage(params, encryptedDeviceToken, cloneCode=cloneCode, loginType=loginType)
+
+                        except Exception as e:
+                            err_msg += f"\nDevice was not registered in region ({params.region}): {e}"
 
                     raise KeeperApiError(rs['error'], err_msg)
                 else:
@@ -802,15 +812,17 @@ class LoginV3API:
 
 
         # TODO: refactor into util for handling Standard Rest Authentication Errors
-        try:
-            rs = api.communicate_rest(params, rq, 'authentication/register_device_in_region')
-        except Exception as e:
-            # device_disabled - this device has been disabled for all users / all commands
-            # user_device_disabled - this user has disabled access from this device
-            # redirect - depending on the command, if the user is a pending enterprise user, or and existing user and they are in a different region, they will be redirected to the proper keeperapp server to submit the request
-            # client_version - Invalid client version
-            logging.error(f"Unable to register device in {params.region}: {e}")
-            return False
+        # try:
+        rs = api.communicate_rest(params, rq, 'authentication/register_device_in_region')
+        # except Exception as e:
+        #     # device_disabled - this device has been disabled for all users / all commands
+        #     # user_device_disabled - this user has disabled access from this device
+        #     # redirect - depending on the command, if the user is a pending enterprise user, or and existing user and they are in a different region, they will be redirected to the proper keeperapp server to submit the request
+        #     # client_version - Invalid client version
+        #     logging.error(f"Unable to register device in {params.region}: {e}")
+        #     return False
+        # else:
+        #     return True
 
 
     @staticmethod
