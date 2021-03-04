@@ -7,6 +7,7 @@ import os
 from collections import OrderedDict
 from email.utils import parseaddr
 from sys import platform as _platform
+from urllib.parse import urlparse, urlunparse
 
 from Cryptodome.Math.Numbers import Integer
 from Cryptodome.PublicKey import RSA
@@ -29,6 +30,7 @@ from .params import KeeperParams
 
 warned_on_fido_package = False
 
+logger = logging.getLogger(__name__)
 
 class LoginV3Flow:
 
@@ -110,20 +112,26 @@ class LoginV3Flow:
                 raise Exception('This account need to be created.' % rest_api.CLIENT_VERSION)
 
             elif resp.loginState == proto.REGION_REDIRECT:
+                p = urlparse(params.server)
+                new_url = urlunparse((p.scheme, resp.stateSpecificValue, p.path, None, None, None))
+                new_domain = resp.stateSpecificValue.upper()
 
-                redir_serv_host = params.server[8:].upper()
+                # TODO: refactor server environments/regions into a central location where all the helpers can reside
+                if not p.netloc.upper() in ['KEEPERSECURITY.COM', 'KEEPERSECURITY.EU']:
+                    logger.warning(f"Server has indicated to redirect login to an unrecognized data center region: {p.netloc}")
+                else:
+                    logging.warning(f"This account is registered in '{new_domain}' but you are trying to login to '{params.domain}'.")
 
-                warn_msg = \
-                    "\nThis account is registered in '%s' but you are trying to login to '%s' server." \
-                    "\nRedirecting to %s"\
-                    % (resp.stateSpecificValue.upper(), redir_serv_host, redir_serv_host)
+                logging.info(f"Redirecting to {new_url}.")
 
-                logging.warning(warn_msg)
+                # TODO: setters
+                params.rest_context.server_base = new_url
+                params.server = new_url
 
-                params.rest_context.server_base = 'https://{0}/'.format(resp.stateSpecificValue)
-                params.server = params.rest_context.server_base
+                # TODO: explicitly update / save the config here, or just do it implicitly on params.erver setter
 
-                resp = LoginV3API.startLoginMessage(params, encryptedDeviceToken)
+                resp = LoginV3API.register_device_in_region(params)
+
 
             elif resp.loginState == proto.REQUIRES_AUTH_HASH:
                 # TODO: "redirect" should take precedence maybe?
@@ -778,6 +786,27 @@ class LoginV3API:
             raise e
 
         return True
+
+    @staticmethod
+    def register_device_in_region(params: KeeperParams):
+        rq = proto.RegisterDeviceInRegionRequest()
+        rq.encryptedDeviceToken = params.device_token_bytes
+        rq.clientVersion = rest_api.CLIENT_VERSION
+        rq.deviceName = CommonHelperMethods.get_device_name()
+        rq.devicePublicKey = CommonHelperMethods.public_key_ecc(params)
+
+
+        # TODO: refactor into util for handling Standard Rest Authentication Errors
+        try:
+            rs = api.communicate_rest(params, rq, 'authentication/register_device_in_region')
+        except Exception as e:
+            # device_disabled - this device has been disabled for all users / all commands
+            # user_device_disabled - this user has disabled access from this device
+            # redirect - depending on the command, if the user is a pending enterprise user, or and existing user and they are in a different region, they will be redirected to the proper keeperapp server to submit the request
+            # client_version - Invalid client version
+            logging.error(f"Unable to register device in {params.region}: {e}")
+            return False
+
 
     @staticmethod
     def set_user_setting(params: KeeperParams, name: str, value: str):

@@ -264,13 +264,19 @@ class KeeperParams:
     def __get_region(self):
         return self.rest_context.region.name
 
+    def __set_region(self, value:str):
+        value = value.upper()
+
+        self.rest_context.region = KeeperRegion[value]
+        # TODO: rethink this being in the rest_context?
+
     def __get_url(self):
         url = urlparse(self.__server)
         return urlunparse((url.scheme, url.netloc, '/', None, None, None))
 
     def __get_domain(self):
         url = urlparse(self.__server)
-        return url.netloc
+        return url.netloc.upper()
 
     def __get_server(self):
         return self.__server
@@ -289,7 +295,7 @@ class KeeperParams:
                                x in {'record_uid', 'file_format', 'attachment_id', 'to_username'}}
                 })
 
-    region = property(__get_region)
+    region = property(__get_region, __set_region)
     domain = property(__get_domain)
     url = property(__get_url)
     server = property(__get_server, __set_server)
