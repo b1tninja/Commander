@@ -1120,9 +1120,20 @@ class ShowCommand(Command):
 class RegionCommand(Command):
     """Region control"""
 
-    def execute(self, params, **kwargs):
+    def get_parser(self):  # type: () -> argparse.ArgumentParser or None
+        parser = argparse.ArgumentParser(prog='region', description='Region command')
+        parser.add_argument('region', action='store', type=str, help='Region, COM or EU', nargs='?')
+        parser.error = raise_parse_exception
+        parser.exit = suppress_exit
+        return parser
+
+    def execute(self, params, region=None, **kwargs):
+        if region is not None:
+            params.region = region
+
+        # Display region
         print('')
-        print(f'Server region: {params.region} - {params.server}')
+        print(f'Server region: {params.region} - {params.domain}')
 
     def is_authorised(self):
         return False
