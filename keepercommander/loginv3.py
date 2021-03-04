@@ -130,8 +130,13 @@ class LoginV3Flow:
 
                 # TODO: explicitly update / save the config here, or just do it implicitly on params.erver setter
 
-                resp = LoginV3API.register_device_in_region(params)
+                if params.device_token:
+                    # We may have just registered the device in the wrong region, lets re-register it in the suggested region
+                    resp = LoginV3API.register_device_in_region(params)
+                    if not resp:
+                        logging.warning("Was unable to register device in this region")
 
+                resp = LoginV3API.startLoginMessage(params, encryptedDeviceToken)
 
             elif resp.loginState == proto.REQUIRES_AUTH_HASH:
                 # TODO: "redirect" should take precedence maybe?
