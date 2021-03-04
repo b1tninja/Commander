@@ -145,8 +145,9 @@ class LoginV3Flow:
                 try:
                     LoginV3Flow.login(params)
                 except DeviceNotRegistered:
-                    # SOMEHOW ACQUIRE params.session_token
-                    LoginV3API.register_device_in_region(params)
+                    logging.warning("Device token is not valid in this region, it may have been registered in another region. Removing device_token from config.")
+                    # LoginV3Flow.verifyDevice(params, )
+                    LoginV3Flow.login(params)
 
             elif resp.loginState == proto.REQUIRES_AUTH_HASH:
                 # TODO: "redirect" should take precedence maybe?
@@ -701,7 +702,12 @@ class LoginV3API:
 
                 if 'additional_info' in rs:
                     if rs['error'] == 'device_not_registered':
-                        raise DeviceNotRegistered(rs['error'], f"Attempting to register device in this region ({params.region}).")
+                        # TODO dotnet sdk keeps device_token, so it can track which servers it has registered with.
+                        params.device_token = None
+                        params.clone_code = None
+                        del params.config['device_token']
+                        del params.config['clone_code']
+                        raise DeviceNotRegistered(rs['error'], f"Device not registered with server: {params.server}.")
                     else:
                         raise KeeperApiError(rs['error'], rs['additional_info'])
                 else:

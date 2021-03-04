@@ -58,7 +58,7 @@ class KeeperApiError(CommunicationError):
 
 
 
-class DeviceNotRegistered(KeeperApiError):
+class DeviceNotRegistered(AuthenticationError):
     pass
 
 
