@@ -37,7 +37,7 @@ from collections import OrderedDict as OD
 
 from .base import user_choice, suppress_exit, raise_parse_exception, dump_report_data, Command
 from .record import RecordAddCommand
-from .. import api, rest_api
+from .. import api, rest_api, APIRequest_pb2 as proto
 from ..display import bcolors
 from ..record import Record
 from ..params import KeeperParams
@@ -60,23 +60,25 @@ def register_commands(commands):
 
     commands['audit-log'] = AuditLogCommand()
     commands['audit-report'] = AuditReportCommand()
+    commands['security-audit-report'] = SecurityAuditReportCommand()
     commands['user-report'] = UserReportCommand()
 
 
 def register_command_info(aliases, command_info):
+    aliases['al'] = 'audit-log'
     aliases['ed'] = 'enterprise-down'
     aliases['ei'] = 'enterprise-info'
     aliases['en'] = 'enterprise-node'
     aliases['eu'] = 'enterprise-user'
     aliases['er'] = 'enterprise-role'
     aliases['et'] = 'enterprise-team'
-    aliases['al'] = 'audit-log'
+    aliases['sar'] = 'security-audit-report'
 
     for p in [enterprise_info_parser, enterprise_node_parser, enterprise_user_parser, enterprise_role_parser,
               enterprise_team_parser,
               enterprise_push_parser,
               team_approve_parser, device_approve_parser,
-              audit_log_parser, audit_report_parser, user_report_parser]:
+              audit_log_parser, audit_report_parser, security_audit_report_parser, user_report_parser]:
         command_info[p.prog] = p.description
 
 
@@ -234,6 +236,14 @@ audit_report_parser.add_argument('--record-uid', dest='record_uid', action='stor
 audit_report_parser.add_argument('--shared-folder-uid', dest='shared_folder_uid', action='store', help='Filter: Shared Folder UID')
 audit_report_parser.error = raise_parse_exception
 audit_report_parser.exit = suppress_exit
+
+
+security_audit_report_parser = argparse.ArgumentParser(prog='security-audit-report', description='Run a security audit report.')
+security_audit_report_parser.add_argument('--syntax-help', dest='syntax_help', action='store_true', help='display help')
+security_audit_report_parser.add_argument('--format', dest='format', action='store', choices=['csv', 'json', 'table'], default='table', help='output format.')
+security_audit_report_parser.add_argument('--output', dest='output', action='store', help='output file name. (ignored for table format)')
+security_audit_report_parser.error = raise_parse_exception
+security_audit_report_parser.exit = suppress_exit
 
 
 user_report_parser = argparse.ArgumentParser(prog='user-report', description='Run a user report.')
@@ -1202,7 +1212,16 @@ class EnterpriseUserCommand(EnterpriseCommand):
                                             is_managed_role = True
                                             break
                             if is_managed_role:
-                                if 'role_keys' in params.enterprise:
+
+                                if 'role_keys2' in params.enterprise:
+                                    for rk2 in params.enterprise['role_keys2']:
+                                        if rk2['role_id'] == role_id:
+                                            encrypted_key_decoded = base64.urlsafe_b64decode(rk2['role_key'] + '==')
+                                            role_key = rest_api.decrypt_aes(encrypted_key_decoded,
+                                                                            params.enterprise['unencrypted_tree_key'])
+                                            break
+
+                                if 'role_keys' in params.enterprise and role_key is None:
                                     for rk in params.enterprise['role_keys']:
                                         if rk['role_id'] == role_id:
                                             if rk['key_type'] == 'encrypted_by_data_key':
@@ -1238,7 +1257,7 @@ class EnterpriseUserCommand(EnterpriseCommand):
                                     if user_pkeys[user_id]:
                                         rq['tree_key'] = api.encrypt_rsa(params.enterprise['unencrypted_tree_key'], user_pkeys[user_id])
                                         if role_key:
-                                            rq['role_admin_key'] = api.encrypt_aes(role_key, user_pkeys[user_id])
+                                            rq['role_admin_key'] = api.encrypt_rsa(role_key, user_pkeys[user_id])
                                         request_batch.append(rq)
                                 else:
                                     request_batch.append(rq)
@@ -1565,7 +1584,15 @@ class EnterpriseRoleCommand(EnterpriseCommand):
                                         is_managed_role = True
                                         break
                         if is_managed_role:
-                            if 'role_keys' in params.enterprise:
+
+                            if 'role_keys2' in params.enterprise:
+                                for rk2 in params.enterprise['role_keys2']:
+                                    if rk2['role_id'] == role_id:
+                                        encrypted_key_decoded = base64.urlsafe_b64decode(rk2['role_key'] + '==')
+                                        role_key = rest_api.decrypt_aes(encrypted_key_decoded, params.enterprise['unencrypted_tree_key'])
+                                        break
+
+                            if 'role_keys' in params.enterprise and role_key is None:
                                 for rk in params.enterprise['role_keys']:
                                     if rk['role_id'] == role_id:
                                         if rk['key_type'] == 'encrypted_by_data_key':
@@ -1590,7 +1617,7 @@ class EnterpriseRoleCommand(EnterpriseCommand):
                             if user_pkeys[user_id]:
                                 rq['tree_key'] = api.encrypt_rsa(params.enterprise['unencrypted_tree_key'], user_pkeys[user_id])
                                 if role_key:
-                                    rq['role_admin_key'] = api.encrypt_aes(role_key, user_pkeys[user_id])
+                                    rq['role_admin_key'] = api.encrypt_rsa(role_key, user_pkeys[user_id])
                                 request_batch.append(rq)
                         else:
                             request_batch.append(rq)
@@ -3020,6 +3047,125 @@ class AuditReportCommand(Command):
         return convert(filter_value)
 
 
+security_audit_report_description = '''
+Security Audit Report Command Syntax Description:
+
+Column Name       Description
+  username          user name
+  email             e-mail address
+  weak              number of records whose password strength is in the weak category
+  medium            number of records whose password strength is in the medium category
+  strong            number of records whose password strength is in the strong category
+  reused            number of reused passwords
+  unique            number of unique passwords
+  securityScore     security score
+  twoFactorChannel  2FA - ON/OFF
+
+--report-type:
+            csv     CSV format
+            json    JSON format
+            table   Table format (default)
+'''
+
+
+class SecurityAuditReportCommand(Command):
+    def __init__(self):
+        self.user_lookup = None
+
+    def get_parser(self):
+        return security_audit_report_parser
+
+    def get_security_score(self, total, strong, unique, twoFactorOn, masterPassword):
+        strongByTotal = 0 if (total == 0 ) else (strong / total)
+        uniqueByTotal = 0 if (total == 0 ) else (unique / total)
+        twoFactorOnVal = 1 if (twoFactorOn == True) else 0
+        score = (strongByTotal + uniqueByTotal + masterPassword + twoFactorOnVal) / 4
+        return score
+
+    def resolve_user_info(self, params, enterprise_user_id):
+        if self.user_lookup is None:
+            self.user_lookup = {}
+            if params.enterprise:
+                if 'users' in params.enterprise:
+                    for user in params.enterprise['users']:
+                        if 'enterprise_user_id' in user and 'username' in user:
+                            email = user['username']
+                            username = user['data']['displayname'] if 'data' in user and 'displayname' in user['data'] else None
+                            if (username is None or not username.strip()) and 'encrypted_data' in user and 'key_type' in user:
+                                username = user['encrypted_data'] if user['key_type'] == 'no_key' else None
+                            username = email if username is None or not username.strip() else username
+                            self.user_lookup[user['enterprise_user_id']] = { 'username': username, 'email': email }
+
+        info = {
+            'username': enterprise_user_id,
+            'email': enterprise_user_id
+        }
+
+        if enterprise_user_id in self.user_lookup:
+            info = self.user_lookup[enterprise_user_id]
+
+        return info
+
+    def execute(self, params, **kwargs):
+        if kwargs.get('syntax_help'):
+            logging.info(security_audit_report_description)
+            return
+
+        format = 'table'
+        if kwargs.get('format'):
+            format = kwargs['format']
+
+        rq = proto.SecurityReportRequest()
+        rs = api.communicate_rest(params, rq, 'enterprise/get_security_report_data')
+
+        security_report_data_rs = proto.SecurityReportResponse()
+        security_report_data_rs.ParseFromString(rs)
+
+        rows = []
+        for sr in security_report_data_rs.securityReport:
+            user_info = self.resolve_user_info(params, sr.enterpriseUserId)
+            user = user_info['username'] if 'username' in user_info else str(sr.enterpriseUserId)
+            email = user_info['email'] if 'email' in user_info else str(sr.enterpriseUserId)
+            twofa_on = False if sr.twoFactor == 'two_factor_disabled' else True
+            row = {
+                'username': user,
+                'email': email,
+                'weak': 0,
+                'medium': 0,
+                'strong': 0,
+                'reused': sr.numberOfReusedPassword,
+                'unique': 0,
+                'securityScore': 25,
+                'twoFactorChannel': 'Off' if sr.twoFactor == 'two_factor_disabled' else 'On'
+            }
+            master_password_strength = 1
+
+            if sr.encryptedReportData:
+                sri = rest_api.decrypt_aes(sr.encryptedReportData, params.enterprise['unencrypted_tree_key'])
+                data = json.loads(sri)
+                row['weak'] = data['weak_record_passwords'] if 'weak_record_passwords' in data else 0
+                row['strong'] = data['strong_record_passwords'] if 'weak_record_passwords' in data else 0
+                row['medium'] = data['total_record_passwords'] - row['weak'] - row['strong']
+                row['unique'] = data['total_record_passwords'] - row['reused']
+                score = self.get_security_score(data['total_record_passwords'], row['strong'], row['unique'], twofa_on, master_password_strength)
+                score = int(100 * round(score, 2))
+                row['securityScore'] = score
+            rows.append(row)
+
+        fields = ('username', 'email', 'weak', 'medium', 'strong', 'reused', 'unique', 'securityScore', 'twoFactorChannel')
+        field_descriptions = fields
+        if format == 'table':
+            field_descriptions = ('User', 'e-mail', 'Weak', 'Medium', 'Strong', 'Reused', 'Unique', 'Security Score', '2FA')
+
+        table = []
+        for raw in rows:
+            row = []
+            for f in fields:
+                row.append(raw[f])
+            table.append(row)
+        dump_report_data(table, field_descriptions, fmt=format, filename=kwargs.get('output'))
+
+
 enterprise_push_description = '''
 Template record file example:
 
@@ -3251,6 +3397,8 @@ class EnterprisePushCommand(EnterpriseCommand):
                 logging.warning('There are no teams to manage. Try to refresh your local data by synching data from the server (use command `enterprise-down`).')
 
         return emails
+
+
 class UserReportCommand(Command):
     def __init__(self):
         Command.__init__(self)
@@ -3546,9 +3694,6 @@ class DeviceApproveCommand(EnterpriseCommand):
             }
             response = api.communicate(params, request)
             DeviceApproveCommand.DevicesToApprove = response.get('devices_request_for_admin_approval') or []
-
-            api.query_enterprise(params)
-
         if not DeviceApproveCommand.DevicesToApprove:
             logging.info('There are no pending devices to approve')
             return
@@ -3620,12 +3765,19 @@ class DeviceApproveCommand(EnterpriseCommand):
                             ip_map[uname] = set()
                         ip_map[uname].add(row['ip_address'])
 
+            # Filter out users that tried to login from an untrusted IP
+            trusted_devices = {}    # To avoid array modification in a loop, we will store this into a separated dict
+
             for k, v in matching_devices.items():
                 p_uname = emails.get(v.get('enterprise_user_id'))
                 p_ip_addr = v.get('ip_address')
                 keep = p_uname and p_ip_addr and p_uname in ip_map and p_ip_addr in ip_map[p_uname]
-                if not keep:
-                    del matching_devices[k]
+                if keep:
+                    trusted_devices[k] = v
+                else:
+                    logging.warning("The user %s attempted to login from an unstrusted IP (%s). To force the approval, run the same command without the --trusted-ip argument", p_uname, p_ip_addr)
+
+            matching_devices = trusted_devices
 
         if len(matching_devices) == 0:
             logging.info('No matching devices found')
@@ -3663,7 +3815,6 @@ class DeviceApproveCommand(EnterpriseCommand):
                         if type(rs) is bytes:
                             data_key_rs = EnterpriseUserDataKeys()
                             data_key_rs.ParseFromString(rs)
-                            logging.debug(data_key_rs)
                             for key in data_key_rs.keys:
                                 enc_data_key = key.userEncryptedDataKey
                                 if enc_data_key:
@@ -3757,7 +3908,6 @@ class DeviceApproveCommand(EnterpriseCommand):
             if type(rs) is bytes:
                 approve_rs = ApproveUserDevicesResponse()
                 approve_rs.ParseFromString(rs)
-                logging.debug(approve_rs)
                 DeviceApproveCommand.DevicesToApprove = None
             else:
                 logging.warning(rs)

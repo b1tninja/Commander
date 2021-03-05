@@ -137,13 +137,26 @@ optional arguments:
 
 ### Login
 
-Current login mechanism is by default uses new Login V3 flow. This login flow includes following features:
-- Now all devices that access Keeper require to be registered using email, sms push, or security key
-- Ability to use SSO login. At this time Commander only supports login with alternate master password.
+In the folder where you are running Commander, create a file called config.json which defines the
+API server and the email address.
+
+For customers hosted in the US region, set the US endpoint:
+```shell script
+{
+  "server": "https://keepersecurity.com/api/v2/"
+}
+```
+
+For customers hosted in the EU region, set the EU endpoint:
+```shell script
+{
+  "server": "https://keepersecurity.eu/api/v2/"
+}
+```
 
 ##### Device approval
 
-Login V3 now by default requires all devices to be approved before authenticating a user. On the first run Commander
+The Keeper Login API requires all devices must be approved before authentication. On the first run, Commander
 will present user with the options to approve this device. Below are the available options that will be presented:
 
 - `email_send` - Send email to the user with instructions to approve this device.
@@ -168,10 +181,8 @@ Type your selection: email_send
 ```
 
 ##### Authentication
-Once devices is approved user will be presented with the authentication flow. If user's configurations have 2FA enabled
-then user will be presented with the available options to authorize and then authenticate with the master password.
-
-
+Once devices are approved, the user will be presented with the authentication flow. If the user's configurations have 2FA enabled
+then the user will be presented with the available options to authorize and then authenticate with the master password.
 
 ##### SSO Accounts
 Even though Login V3 supports SSO login, Commander at this point does not support this ability.
@@ -186,8 +197,7 @@ Selection (ex. 2):
 ```
 
 ##### Persistent Login Flow
-Persistent Login allows users to login into Keeper without typing a password. In order to enable it user must register the device and turn on the persistent login. Once that's done the next time when user logs in to Keeper Commander he will
-be automatically login to the account. All settings to which account will be stored in `config.json` file.
+Persistent Login allows a user to login without typing a master password. In order to enable this feature, the user must register the device and turn on the persistent login setting. Once that's done the next time when user logs in, the session will be resumed and the user will be automatically logged in. Several tokens are stored in the `config.json` file in order to resume a session automatically.
 
 Steps to enable persistent login:
 
@@ -195,7 +205,7 @@ Steps to enable persistent login:
 2. Enable persistent login: `this-device persistent_login on`
 
 ##### Login without password
-It is possible to login on another device (such as server) without storing Master Password in the `config.json` file.
+It is possible to login on another device (such as server) without storing the Master Password in the `config.json` file.
 Below are the steps to achive that:
 
 1. Login to Commander on computer (A) and enable Persistent Login feature by following steps above.
@@ -928,6 +938,43 @@ To export records from your vault, use the ```export``` command.  Supported expo
 JSON export files contain records, folders, subfolders, shared folders, default folder permissions and user/team permissions.
 CSV import files contain records, folders, subfolders, shared folders and default shared folder permissions.
 Keepass files contain records, file attachments, folders and subfolders.
+
+### Security Audit Report
+
+Business customers can generate security audit reports. For help with the syntax of the report, use the following command:
+```
+My Vault> security-audit-report --syntax-help
+
+Security Audit Report Command Syntax Description:
+
+Column Name       Description
+  username          user name
+  email             e-mail address
+  weak              number of records whose password strength is in the weak category
+  medium            number of records whose password strength is in the medium category
+  strong            number of records whose password strength is in the strong category
+  reused            number of reused passwords
+  unique            number of unique passwords
+  securityScore     security score
+  twoFactorChannel  2FA - ON/OFF
+
+--report-type:
+            csv     CSV format
+            json    JSON format
+            table   Table format (default)
+```
+Supported export formats:
+* JSON
+* CSV
+
+To view the report in CSV format use the following command:
+```
+My Vault> security-audit-report --format csv
+```
+To export the report in CSV format use the following command:
+```
+My Vault> security-audit-report --format csv --output security_audit.csv
+```
 
 ### Ad-Hoc Event Reporting 
 

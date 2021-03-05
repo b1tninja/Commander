@@ -707,7 +707,7 @@ class LoginV3API:
                         params.clone_code = None
                         del params.config['device_token']
                         del params.config['clone_code']
-                        raise DeviceNotRegistered(rs['error'], f"Device not registered with server: {params.server}.")
+                        raise DeviceNotRegistered(f"Device not registered with server: {params.server}.")
                     else:
                         raise KeeperApiError(rs['error'], rs['additional_info'])
                 else:

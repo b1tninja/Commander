@@ -11,17 +11,17 @@
 #
 import logging
 
-__version__ = '4.68'
+__version__ = '4.70'
 
-logging.basicConfig(filename=f'{__name__}.log',
-                    level=logging.INFO,
-                    format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
-                    datefmt='%H:%M:%S')
+# logging.basicConfig(filename=f'{__name__}.log',
+#                     level=logging.INFO,
+#                     format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+#                     datefmt='%H:%M:%S')
 
 console = logging.StreamHandler()
 console.setLevel(logging.DEBUG)
 # set a format which is simpler for console use
-formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+formatter = logging.Formatter('%(levelname)-8s %(message)s')
 console.setFormatter(formatter)
 # add the handler to the root logger
 logging.getLogger('').addHandler(console)
