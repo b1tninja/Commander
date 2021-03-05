@@ -115,39 +115,22 @@ class LoginV3Flow:
                 raise Exception('This account need to be created.' % rest_api.CLIENT_VERSION)
 
             elif resp.loginState == proto.REGION_REDIRECT:
-                # TODO: track previous login state, have a login session instance/manager. "if previously required DEVICE_APPROVAL"
-
-                p = urlparse(params.server)
                 new_url = server_base_from_domain(resp.stateSpecificValue)
                 new_domain = resp.stateSpecificValue.upper()
 
-                # TODO: refactor server environments/regions into a central location where all the helpers can reside
-                if not new_domain in ['KEEPERSECURITY.COM', 'KEEPERSECURITY.EU']:
-                    logging.warning(f"Server has indicated to redirect login to an unrecognized data center region: {p.netloc}")
-                else:
-                    logging.warning(f"This account is registered in '{new_domain}' but you are trying to login to '{params.domain}'.")
-
-                logging.info(f"Redirecting to {new_url}.")
-
-                # TODO: setters
+                logging.info(f"This account was registered in another region although the device has been registered in {params.domain} connecting to {new_domain} now.")
                 params.server = new_url
 
-                # TODO: explicitly update / save the config here, or just do it implicitly on params.erver setter
-
-                # # We may have just registered the device in the wrong region, lets re-register it in the suggested region
+                # TODO: clearly this API is intended for this scenario
                 # resp = LoginV3API.register_device_in_region(params)
-                # if not resp:
-                #     logging.warning("Was unable to register device region")
-                #     # TODO: abort login? unset token? try anyway?
+
                 try:
                     LoginV3Flow.login(params)
                 except DeviceNotRegistered:
-                    logging.warning("Device token is not valid in this region, it may have been registered in another region. Removing device_token from config.")
-                    # LoginV3Flow.verifyDevice(params, )
+                    logging.warning(f"Device has not been registered in this region. You will need to reapprove this device for this region: {params.domain}.")
                     LoginV3Flow.login(params)
 
             elif resp.loginState == proto.REQUIRES_AUTH_HASH:
-                # TODO: "redirect" should take precedence maybe?
                 print(f"Logging on to {params.server} as {params.user}...")
                 CommonHelperMethods.fill_password_with_prompt_if_missing(params)
 
