@@ -255,6 +255,7 @@ class KeeperParams:
     def __set_server(self, value):
         self.__server = value
         self.__rest_context.server_base = value
+        # TODO: write config
 
     def queue_audit_event(self, name, **kwargs):
         # type: (str, dict) -> None
