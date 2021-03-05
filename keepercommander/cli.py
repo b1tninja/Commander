@@ -359,7 +359,7 @@ def runcommands(params):
             except CommunicationError as e:
                 logging.error("Communication Error: %s", e.message)
             except AuthenticationError as e:
-                logging.error("AuthenticationError Error: %s", e.message)
+                logging.error("Authentication Error: %s", e.message)
             except Exception as e:
                 logging.debug(e, exc_info=True)
                 logging.error('An unexpected error occurred: %s', sys.exc_info()[0])
@@ -545,9 +545,9 @@ def get_prompt(params):
             if params.root_folder:
                 params.current_folder = ''
             else:
-                return 'Keeper> '
+                return f'{params.domain} ({params.user})> '
     else:
-        return 'Not logged in> '
+        return f'Please login.\n{params.domain} {os.path.basename(sys.argv[0])} {os.getcwd()}>'
 
     prompt = ''
     f = params.folder_cache[params.current_folder] if params.current_folder in params.folder_cache else params.root_folder
