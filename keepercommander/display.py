@@ -7,14 +7,16 @@
 # Keeper Commander 
 # Contact: ops@keepersecurity.com
 #
+from . import __version__
 import json
+from collections import OrderedDict as OD
 
+from asciitree import LeftAligned
 from colorama import init
 from tabulate import tabulate
-from asciitree import LeftAligned
-from collections import OrderedDict as OD
-from .subfolder import BaseFolderNode
 
+from .params import KeeperParams
+from .subfolder import BaseFolderNode
 
 init()
 
@@ -30,15 +32,16 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 
-def welcome():
-    print('\n')
-    print(bcolors.OKBLUE,' _  __  ' + bcolors.ENDC)
-    print(bcolors.OKBLUE,'| |/ /___ ___ _ __  ___ _ _ ' + bcolors.ENDC)
-    print(bcolors.OKBLUE,'| \' </ -_) -_) \'_ \\/ -_) \'_|' + bcolors.ENDC)
-    print(bcolors.OKBLUE,'|_|\\_\\___\\___| .__/\\___|_|' + bcolors.ENDC)
-    print(bcolors.OKBLUE,'             |_|            ' + bcolors.ENDC)
-    print('')
-    print(bcolors.FAIL,'password manager & digital vault' + bcolors.ENDC)
+def welcome(params: KeeperParams):
+    tld = params.domain.rsplit('.', maxsplit=1)[-1].upper()
+    print(bcolors.OKBLUE)
+    print('   _  __  ')
+    print('  | |/ /___ ___ _ __  ___ _ _ ')
+    print('  | \' </ -_) -_) \'_ \\/ -_) \'_|')
+    print('  |_|\\_\\___\\___| .__/\\___|_|')
+    print(f'  {bcolors.ENDC}    {bcolors.BOLD}SECURITY{bcolors.ENDC} {bcolors.OKBLUE}|_|{bcolors.ENDC} {bcolors.BOLD}{tld}{bcolors.ENDC} v{__version__}')
+    print(f'   {params.url}')
+    print(bcolors.FAIL, 'password manager & digital vault' + bcolors.ENDC)
     print('')
     print('')
 
