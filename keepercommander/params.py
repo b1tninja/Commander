@@ -15,6 +15,7 @@ import os
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
+
 LAST_RECORD_UID = 'last_record_uid'
 LAST_SHARED_FOLDER_UID = 'last_shared_folder_uid'
 LAST_FOLDER_UID = 'last_folder_uid'
@@ -197,7 +198,7 @@ class KeeperParams:
         self.__rest_context = rest_context
         self.pending_share_requests = set()
         self.environment_variables = {}
-        self.record_history = {}  # type: dict[str, (list[dict], int)]
+        self.record_history = {}
         self.event_queue = []
         self.logout_timer = logout_timer
         self.login_v3 = login_v3
@@ -274,15 +275,6 @@ class KeeperParams:
     def __get_rest_context(self):
         return self.__rest_context
 
-    def __get_region(self):
-        return self.rest_context.region.name
-
-    def __set_region(self, value:str):
-        value = value.upper()
-
-        self.rest_context.region = KeeperRegion[value]
-        # TODO: rethink this being in the rest_context?
-
     def __get_url(self):
         url = urlparse(self.__server)
         return urlunparse((url.scheme, url.netloc, '/', None, None, None))
@@ -304,11 +296,9 @@ class KeeperParams:
             if self.license['account_type'] == 2:
                 self.event_queue.append({
                     'audit_event_type': name,
-                    'inputs': {x: kwargs[x] for x in kwargs if
-                               x in {'record_uid', 'file_format', 'attachment_id', 'to_username'}}
+                    'inputs': {x: kwargs[x] for x in kwargs if x in {'record_uid', 'file_format', 'attachment_id', 'to_username'}}
                 })
 
-    region = property(__get_region, __set_region)
     domain = property(__get_domain)
     url = property(__get_url)
     server = property(__get_server, __set_server)

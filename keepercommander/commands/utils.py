@@ -63,8 +63,8 @@ def register_commands(commands):
     commands['echo'] = EchoCommand()
     commands['set'] = SetCommand()
     commands['help'] = HelpCommand()
-    commands['show'] = ShowCommand()
-    commands['region'] = RegionCommand()
+    # commands['show'] = ShowCommand()
+    # commands['region'] = RegionCommand()
 
 
 def register_command_info(aliases, command_info):
@@ -1128,12 +1128,12 @@ class RegionCommand(Command):
         return parser
 
     def execute(self, params, region=None, **kwargs):
-        if region is not None:
-            params.region = region
+        # if region is not None:
+        #     params.region = region
 
         # Display region
         print('')
-        print(f'Server region: {params.region} - {params.domain}')
+        print(f'Server: {params.domain}')
 
     def is_authorised(self):
         return False
