@@ -26,79 +26,6 @@ from .params import KeeperParams
 from . import cli
 
 
-def get_params_from_config(config_filename):
-    params = KeeperParams()
-    params.config_filename = (
-        config_filename or os.getenv('KEEPER_CONFIG_FILE', 'config.json')
-    )
-
-    if os.path.exists(params.config_filename):
-        try:
-            try:
-                with open(params.config_filename) as config_file:
-                    params.config = json.load(config_file)
-
-                    if 'user' in params.config:
-                        params.user = params.config['user'].lower()
-
-                    if 'server' in params.config:
-                        params.server = params.config['server']
-
-                    if 'password' in params.config:
-                        params.password = params.config['password']
-
-                    if 'timedelay' in params.config:
-                        params.timedelay = params.config['timedelay']
-
-                    if 'mfa_token' in params.config:
-                        params.mfa_token = params.config['mfa_token']
-
-                    if 'mfa_type' in params.config:
-                        params.mfa_type = params.config['mfa_type']
-
-                    if 'commands' in params.config:
-                        if params.config['commands']:
-                            params.commands.extend(params.config['commands'])
-
-                    if 'plugins' in params.config:
-                        params.plugins = params.config['plugins']
-
-                    if 'debug' in params.config:
-                        if params.config['debug']:
-                            logging.getLogger().setLevel(logging.DEBUG)
-                            logging.info('Debug ON')
-
-                    if 'batch_mode' in params.config:
-                        params.batch_mode = params.config['batch_mode'] == True
-
-                    if 'device_id' in params.config:
-                        device_id = base64.urlsafe_b64decode(params.config['device_id'] + '==')
-                        params.rest_context.device_id = device_id
-
-                    if 'logout_timer' in params.config:
-                        params.logout_timer = params.config['logout_timer']
-
-                    if 'login_v3' in params.config:
-                        params.login_v3 = params.config['login_v3']
-
-                    if 'private_key' in params.config:
-                        params.device_private_key = params.config['private_key']
-
-            except Exception as e:
-                logging.error('Unable to parse JSON configuration file "%s"', params.config_filename)
-                answer = input('Do you want to delete it (y/N): ')
-                if answer in ['y', 'Y']:
-                    os.remove(params.config_filename)
-                else:
-                    raise e
-        except IOError as ioe:
-            logging.warning('Error: Unable to open config file %s: %s', params.config_filename, ioe)
-
-    if not params.server:
-        params.server = 'https://keepersecurity.com/api/v2/'
-
-    return params
-
 
 def usage(m):
     print(m)
@@ -137,7 +64,7 @@ def main(from_package=False):
     sys.argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', sys.argv[0])
 
     opts, flags = parser.parse_known_args(sys.argv[1:])
-    params = get_params_from_config(opts.config)
+    params = KeeperParams.from_config(opts.config)
 
     if opts.debug:
         params.debug = opts.debug

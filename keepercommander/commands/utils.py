@@ -1,4 +1,4 @@
-#_  __
+# _  __
 # | |/ /___ ___ _ __  ___ _ _ ®
 # | ' </ -_) -_) '_ \/ -_) '_|
 # |_|\_\___\___| .__/\___|_|
@@ -16,6 +16,7 @@ import argparse
 import logging
 import datetime
 import getpass
+import pprint
 
 import requests
 import tempfile
@@ -128,7 +129,7 @@ set_parser.exit = suppress_exit
 
 
 help_parser = argparse.ArgumentParser(prog='help', description='Displays help on a specific command.')
-help_parser.add_argument('command', action='store', type=str, help='Commander\'s command')
+help_parser.add_argument('command', action='store', type=str, help='Commander\'s command', nargs='?', default='help')
 help_parser.error = raise_parse_exception
 help_parser.exit = suppress_exit
 
@@ -417,27 +418,32 @@ class LoginCommand(Command):
     def is_authorised(self):
         return False
 
-    def execute(self, params, **kwargs):
-        params.clear_session()
-
-        user = kwargs.get('email') or ''
-        password = kwargs.get('password') or ''
+    def execute(self, params, email=None, password=None, **kwargs):
+        # params.clear_session()
 
         try:
-            if not user:
-                user = input('... {0:>16}: '.format('User(Email)')).strip()
-            if not user:
+            if email is None:
+                # Command did not explicitly give the username
+                if params.user:
+                    # Assume the known user from config
+                    email = params.user
+                else:
+                    # Prompt the user
+                    email = input('... {0:>16}: '.format('User(Email)')).strip()
+
+            if not email:
+                logging.debug("Empty user input")
                 return
 
             if not password and not params.login_v3:
                 password = getpass.getpass(prompt='... {0:>16}: '.format('Password'), stream=None).strip()
                 if not password:
                     return
-        except KeyboardInterrupt as e:
+        except (KeyboardInterrupt, EOFError) as e:
             logging.info('Canceled')
             return
 
-        params.user = user.lower()
+        params.user = email.lower()
         params.password = password
 
         api.login(params)
@@ -712,7 +718,6 @@ class ConnectCommand(Command):
         except Exception as e:
             logging.error(e)
 
-
     @staticmethod
     def add_environment_variables(params, endpoint, record, temp_files, non_shared):
         # type: (KeeperParams, str, Record, [str], dict) -> [str]
@@ -778,8 +783,8 @@ class ConnectCommand(Command):
                         payload += ConnectCommand.ssh_agent_encode_long(private_key.q)
                         payload += ConnectCommand.ssh_agent_encode_str(key_name)
                         # windows ssh implementation does not support constrained identities
-                        #payload += SSH_AGENT_CONSTRAIN_LIFETIME.to_bytes(1, byteorder='big')
-                        #payload += int(10).to_bytes(4, byteorder='big')
+                        # payload += SSH_AGENT_CONSTRAIN_LIFETIME.to_bytes(1, byteorder='big')
+                        # payload += int(10).to_bytes(4, byteorder='big')
 
                         recv_payload = fd.send(payload)
                         if recv_payload and recv_payload[0] == SSH_AGENT_FAILURE:
@@ -841,6 +846,7 @@ class ConnectCommand(Command):
             ConnectCommand.Endpoints.sort(key=lambda x: x.name)
 
     attachment_cache = {}
+
     @staticmethod
     def load_attachment_file(params, attachment, record):
         # type: (KeeperParams, dict, Record) -> bytes
@@ -1006,6 +1012,9 @@ class EchoCommand(Command):
                     print('${{{0}}} = "{1}"'.format(name, params.environment_variables[name] ))
                 else:
                     print('${{{0}}} ='.format(name))
+
+    def is_authorised(self):
+        return False
 
 
 class SetCommand(Command):

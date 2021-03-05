@@ -74,9 +74,9 @@ install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
 
 def login(params):
     # type: (KeeperParams) -> None
+    logging.info(f"Logging in to Keeper Commander {params.domain} as '{params.user}'.")
 
     if params.login_v3:
-        logging.info('Logging in to Keeper Commander')
         loginv3.LoginV3Flow.login(params)
         return
 

@@ -7,6 +7,7 @@ import os
 from collections import OrderedDict
 from email.utils import parseaddr
 from sys import platform as _platform
+from urllib.parse import urlparse, urlunparse
 
 from Cryptodome.Math.Numbers import Integer
 from Cryptodome.PublicKey import RSA
@@ -24,10 +25,13 @@ from . import api
 from . import cli
 from . import rest_api, APIRequest_pb2 as proto, AccountSummary_pb2 as proto_as
 from .display import bcolors
-from .error import KeeperApiError, CommandError
+from .error import KeeperApiError, CommandError, DeviceNotRegistered
 from .params import KeeperParams
 
 warned_on_fido_package = False
+
+def server_base_from_domain(domain):
+    return urlunparse(('https', domain, '/api/rest/', None, None, None))
 
 
 class LoginV3Flow:
@@ -35,11 +39,12 @@ class LoginV3Flow:
     @staticmethod
     def login(params: KeeperParams):
 
-        logging.debug("Login v3 Start as '%s'" % params.user)
+        logging.debug("Login v3 Start")
 
         CommonHelperMethods.startup_check(params)
 
         encryptedDeviceToken = LoginV3API.get_device_id(params)
+        params.device_token_bytes = encryptedDeviceToken
 
         clone_code_bytes = CommonHelperMethods.config_file_get_property_as_bytes(params, 'clone_code')
 
@@ -110,23 +115,40 @@ class LoginV3Flow:
                 raise Exception('This account need to be created.' % rest_api.CLIENT_VERSION)
 
             elif resp.loginState == proto.REGION_REDIRECT:
+                # TODO: track previous login state, have a login session instance/manager. "if previously required DEVICE_APPROVAL"
 
-                redir_serv_host = params.server[8:].upper()
+                p = urlparse(params.server)
+                new_url = server_base_from_domain(resp.stateSpecificValue)
+                new_domain = resp.stateSpecificValue.upper()
 
-                warn_msg = \
-                    "\nThis account is registered in '%s' but you are trying to login to '%s' server." \
-                    "\nRedirecting to %s"\
-                    % (resp.stateSpecificValue.upper(), redir_serv_host, redir_serv_host)
+                # TODO: refactor server environments/regions into a central location where all the helpers can reside
+                if not new_domain in ['KEEPERSECURITY.COM', 'KEEPERSECURITY.EU']:
+                    logging.warning(f"Server has indicated to redirect login to an unrecognized data center region: {p.netloc}")
+                else:
+                    logging.warning(f"This account is registered in '{new_domain}' but you are trying to login to '{params.domain}'.")
 
-                logging.warning(warn_msg)
+                logging.info(f"Redirecting to {new_url}.")
 
-                params.rest_context.server_base = 'https://{0}/'.format(resp.stateSpecificValue)
-                params.server = params.rest_context.server_base
+                # TODO: setters
+                params.server = new_url
 
-                resp = LoginV3API.startLoginMessage(params, encryptedDeviceToken)
+                # TODO: explicitly update / save the config here, or just do it implicitly on params.erver setter
+
+                # # We may have just registered the device in the wrong region, lets re-register it in the suggested region
+                # resp = LoginV3API.register_device_in_region(params)
+                # if not resp:
+                #     logging.warning("Was unable to register device region")
+                #     # TODO: abort login? unset token? try anyway?
+                try:
+                    LoginV3Flow.login(params)
+                except DeviceNotRegistered:
+                    logging.warning("Device token is not valid in this region, it may have been registered in another region. Removing device_token from config.")
+                    # LoginV3Flow.verifyDevice(params, )
+                    LoginV3Flow.login(params)
 
             elif resp.loginState == proto.REQUIRES_AUTH_HASH:
-
+                # TODO: "redirect" should take precedence maybe?
+                print(f"Logging on to {params.server} as {params.user}...")
                 CommonHelperMethods.fill_password_with_prompt_if_missing(params)
 
                 salt = api.get_correct_salt(resp.salt)
@@ -622,7 +644,7 @@ class LoginV3API:
             if 'error' in rs and 'message' in rs:
                 if rs['error'] == 'region_redirect':
                     params.device_id = None
-                    params.server_base = 'https://{0}/'.format(rs['region_host'])
+                    params.server_base = server_base_from_domain(['region_host'])
                     # logging.warning('Switching to region: %s', rs['region_host'])
                     # continue
                 if rs['error'] == 'bad_request':
@@ -644,7 +666,7 @@ class LoginV3API:
 
         if cloneCode:
             rq.cloneCode = cloneCode
-            rq.username = ''
+            # rq.username = ''
 
         api_request_payload = proto.ApiRequestPayload()
         api_request_payload.payload = rq.SerializeToString()
@@ -664,7 +686,7 @@ class LoginV3API:
             if 'error' in rs and 'message' in rs:
                 if rs['error'] == 'region_redirect':
                     params.device_id = None
-                    params.server_base = 'https://{0}/'.format(rs['region_host'])
+                    params.server_base = server_base_from_domain(rs['region_host'])
                     # logging.warning('Switching to region: %s', rs['region_host'])
                     # continue
                 if rs['error'] == 'bad_request':
@@ -673,12 +695,15 @@ class LoginV3API:
                     # continue
 
                 if 'additional_info' in rs:
-                    err_msg = "\n" + rs['additional_info']
-
                     if rs['error'] == 'device_not_registered':
-                        err_msg += "\nRegister this user in the current region or change server region"
-
-                    raise KeeperApiError(rs['error'], err_msg)
+                        # TODO dotnet sdk keeps device_token, so it can track which servers it has registered with.
+                        params.device_token = None
+                        params.clone_code = None
+                        del params.config['device_token']
+                        del params.config['clone_code']
+                        raise DeviceNotRegistered(f"Device not registered with server: {params.server}.")
+                    else:
+                        raise KeeperApiError(rs['error'], rs['additional_info'])
                 else:
                     raise KeeperApiError(rs['error'], rs['message'])
 
@@ -777,6 +802,29 @@ class LoginV3API:
             raise e
 
         return True
+
+    @staticmethod
+    def register_device_in_region(params: KeeperParams):
+        rq = proto.RegisterDeviceInRegionRequest()
+        rq.encryptedDeviceToken = params.device_token_bytes
+        rq.clientVersion = rest_api.CLIENT_VERSION
+        rq.deviceName = CommonHelperMethods.get_device_name()
+        rq.devicePublicKey = CommonHelperMethods.public_key_ecc(params)
+
+
+        # TODO: refactor into util for handling Standard Rest Authentication Errors
+        # try:
+        rs = api.communicate_rest(params, rq, 'authentication/register_device_in_region')
+        # except Exception as e:
+        #     # device_disabled - this device has been disabled for all users / all commands
+        #     # user_device_disabled - this user has disabled access from this device
+        #     # redirect - depending on the command, if the user is a pending enterprise user, or and existing user and they are in a different region, they will be redirected to the proper keeperapp server to submit the request
+        #     # client_version - Invalid client version
+        #     logging.error(f"Unable to register device in {params.region}: {e}")
+        #     return False
+        # else:
+        #     return True
+
 
     @staticmethod
     def set_user_setting(params: KeeperParams, name: str, value: str):
