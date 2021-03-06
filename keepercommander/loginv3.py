@@ -127,6 +127,7 @@ class LoginV3Flow:
                 try:
                     LoginV3Flow.login(params)
                 except DeviceNotRegistered:
+                    LoginV3API.register_device_in_region(params)
                     logging.warning(f"Device has not been registered in this region. You will need to reapprove this device for this region: {params.domain}.")
                     LoginV3Flow.login(params)
 
