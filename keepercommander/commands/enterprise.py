@@ -2333,10 +2333,11 @@ class AuditLogSyslogPortExport(AuditLogSyslogBaseExport):
 
         if is_new_config:
             print('Connecting to \'{0}:{1}\' ...'.format(host, port))
+            # TODO: SSLContext()
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM if not is_udp else socket.SOCK_DGRAM) as sock:
                 sock.settimeout(1)
                 if is_ssl:
-                    s = ssl.wrap_socket(sock)
+                    s = ssl.wrap_socket(sock, ssl_version=ssl.PROTOCOL_TLSv1_1)
                 else:
                     s = sock
                 s.connect((host, port))
@@ -2353,7 +2354,7 @@ class AuditLogSyslogPortExport(AuditLogSyslogBaseExport):
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM if not props['is_udp'] else socket.SOCK_DGRAM) as sock:
                 sock.settimeout(1)
                 if props['is_ssl']:
-                    s = ssl.wrap_socket(sock)
+                    s = ssl.wrap_socket(sock, ssl_version=ssl.PROTOCOL_TLSv1_1)
                 else:
                     s = sock
                 s.connect((props['host'], props['port']))
